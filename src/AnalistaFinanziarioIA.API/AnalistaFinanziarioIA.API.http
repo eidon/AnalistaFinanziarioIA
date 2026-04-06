@@ -1,0 +1,11 @@
+@AnalistaFinanziarioIA.API_HostAddress = http://localhost:5051
+
+GET {{AnalistaFinanziarioIA.API_HostAddress}}/api/titoli
+Accept: application/json
+
+###
+
+GET {{AnalistaFinanziarioIA.API_HostAddress}}/api/titoli/simbolo/ENI
+Accept: application/json
+
+###
