@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AnalistaFinanziarioIA.API/AnalistaFinanziarioIA.API.csproj" />
+    <Project Path="src/AnalistaFinanziarioIA.Core/AnalistaFinanziarioIA.Core.csproj" />
+    <Project Path="src/AnalistaFinanziarioIA.Infrastructure/AnalistaFinanziarioIA.Infrastructure.csproj" />
+  </Folder>
+</Solution>
