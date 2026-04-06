@@ -15,34 +15,34 @@ public class AnalisiRepository : IAnalisiRepository
     }
 
     public async Task<IEnumerable<AnalisiFinanziaria>> GetByTitoloIdAsync(int titoloId)
-        => await _context.Analisi
+        => await _context.AnalisiFinanziarie
             .Where(a => a.TitoloId == titoloId)
             .OrderByDescending(a => a.DataAnalisi)
             .ToListAsync();
 
     public async Task<AnalisiFinanziaria?> GetByIdAsync(int id)
-        => await _context.Analisi.FindAsync(id);
+        => await _context.AnalisiFinanziarie.FindAsync(id);
 
     public async Task<AnalisiFinanziaria> AddAsync(AnalisiFinanziaria analisi)
     {
-        _context.Analisi.Add(analisi);
+        _context.AnalisiFinanziarie.Add(analisi);
         await _context.SaveChangesAsync();
         return analisi;
     }
 
     public async Task<AnalisiFinanziaria> UpdateAsync(AnalisiFinanziaria analisi)
     {
-        _context.Analisi.Update(analisi);
+        _context.AnalisiFinanziarie.Update(analisi);
         await _context.SaveChangesAsync();
         return analisi;
     }
 
     public async Task DeleteAsync(int id)
     {
-        var analisi = await _context.Analisi.FindAsync(id);
+        var analisi = await _context.AnalisiFinanziarie.FindAsync(id);
         if (analisi is not null)
         {
-            _context.Analisi.Remove(analisi);
+            _context.AnalisiFinanziarie.Remove(analisi);
             await _context.SaveChangesAsync();
         }
     }
