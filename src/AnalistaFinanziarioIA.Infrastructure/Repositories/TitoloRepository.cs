@@ -46,4 +46,18 @@ public class TitoloRepository : ITitoloRepository
             await _context.SaveChangesAsync();
         }
     }
+
+    public async Task<IEnumerable<Titolo>> CercaAsync(string query, int limit = 5)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return Enumerable.Empty<Titolo>();
+
+        var q = query.ToLower();
+        return await _context.Titoli
+            .Where(t => t.Simbolo.ToLower().Contains(q) || t.Nome.ToLower().Contains(q))
+            .OrderBy(t => t.Nome) // Ordina alfabeticamente
+            .Take(limit) // Non sovraccaricare la UI, i primi 5-10 bastano
+            .ToListAsync();
+    }
+
 }

@@ -10,4 +10,6 @@ public interface ITitoloRepository
     Task<Titolo> AddAsync(Titolo titolo);
     Task<Titolo> UpdateAsync(Titolo titolo);
     Task DeleteAsync(int id);
+
+    Task<IEnumerable<Titolo>> CercaAsync(string query, int limit = 5);
 }

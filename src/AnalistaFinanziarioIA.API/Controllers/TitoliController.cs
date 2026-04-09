@@ -60,4 +60,22 @@ public class TitoliController : ControllerBase
         await _titoloRepository.DeleteAsync(id);
         return NoContent();
     }
+
+    [HttpGet("cerca")]
+    public async Task<IActionResult> Cerca([FromQuery] string query)
+    {
+        if (string.IsNullOrWhiteSpace(query) || query.Length < 2)
+            return Ok(new List<Titolo>());
+
+        // Chiamata al repository che esegue una query LIKE %query%
+        var risultati = await _titoloRepository.CercaAsync(query);
+
+        return Ok(risultati.Select(t => new {
+            t.Id,
+            t.Simbolo,
+            t.Nome,
+            t.Categoria, // es. "Azione", "ETF"
+            t.Valuta
+        }));
+    }
 }

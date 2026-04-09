@@ -7,11 +7,12 @@ namespace AnalistaFinanziarioIA.Infrastructure.Repositories;
 
 public class PortafoglioRepository(AnalistaFinanziarioDbContext context) : IPortafoglioRepository
 {
-    public async Task<AssetPortafoglio> AggiungiTransazioneAsync(Transazione transazione, Guid utenteId, string ticker)
+    // Cambiamo la firma: accettiamo titoloId (int) invece di ticker (string)
+    public async Task<AssetPortafoglio> AggiungiTransazioneAsync(Transazione transazione, Guid utenteId, int titoloId)
     {
-        // 1. Troviamo il titolo nel database generale (es. Apple)
-        var titolo = await context.Titoli.FirstOrDefaultAsync(t => t.Simbolo == ticker)
-            ?? throw new Exception("Titolo non trovato a mercato. Aggiungilo prima ai Titoli.");
+        // 1. Troviamo il titolo usando l'ID ricevuto dal modale (es. 3)
+        var titolo = await context.Titoli.FindAsync(titoloId)
+            ?? throw new Exception("Titolo non trovato. Assicurati che esista nel database.");
 
         // 2. Cerchiamo se l'utente ha già questo titolo in portafoglio
         var asset = await context.AssetsPortafoglio
@@ -36,11 +37,13 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext context) : IPort
         else if (transazione.Tipo == TipoTransazione.Vendita)
         {
             asset.QuantitaTotale -= transazione.Quantita;
-            // Il prezzo medio non cambia con la vendita, si realizza solo un gain/loss
         }
 
         // 4. Colleghiamo la transazione all'asset e salviamo
+        // Assicuriamoci che la transazione punti all'Asset corretto
+        transazione.AssetPortafoglioId = asset.Id;
         asset.Transazioni.Add(transazione);
+
         await context.SaveChangesAsync();
 
         return asset;
@@ -57,7 +60,6 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext context) : IPort
 
     public Task<decimal> CalcolaRendimentoTotaleAsync(int assetId)
     {
-        // Qui implementeremo la logica IA o matematica per il Total Return
         throw new NotImplementedException();
     }
 }

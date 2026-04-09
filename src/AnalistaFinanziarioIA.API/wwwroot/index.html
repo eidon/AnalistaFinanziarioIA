@@ -1,0 +1,351 @@
+﻿<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Portfolio Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .chat-container::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .chat-container::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 10px;
+        }
+    </style>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
+
+    <header class="border-b border-gray-800 p-4 bg-gray-900 sticky top-0 z-10">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold text-blue-500 tracking-wider">FINANCE<span class="text-white">AI</span></h1>
+            <div class="text-sm text-gray-400" id="user-display">Utente: <span class="text-blue-400 font-mono">Utente-Test-01</span></div>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-4 lg:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1">
+
+        <div class="lg:col-span-2 space-y-8">
+
+            <div class="h-64 mb-8">
+                <canvas id="portfolioChart"></canvas>
+            </div>
+
+            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+            <script>
+                let myChart;
+                function aggiornaGrafico(labels, values) {
+                    const ctx = document.getElementById('portfolioChart').getContext('2d');
+                    if (myChart) myChart.destroy();
+                    myChart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                data: values,
+                                backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'],
+                                borderWidth: 0
+                            }]
+                        },
+                        options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af' } } } }
+                    });
+                }
+            </script>
+
+            <section class="bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-700">
+                <div class="p-6 border-b border-gray-700 flex justify-between items-center">
+                    <h2 class="text-lg font-semibold">Asset nel Portafoglio</h2>
+                    <button onclick="caricaPortafoglio()" class="text-gray-400 hover:text-white transition">🔄 Aggiorna</button>
+                    <button onclick="apriModale()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition shadow-lg shadow-blue-900/20">
+                        + Aggiungi
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-750 text-gray-400 text-xs uppercase">
+                            <tr>
+                                <th class="px-6 py-4">Titolo</th>
+                                <th class="px-6 py-4 text-right">Quantità</th>
+                                <th class="px-6 py-4 text-right">PMC</th>
+                                <th class="px-6 py-4 text-right">Valuta</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabella-asset" class="divide-y divide-gray-700">
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <div class="flex flex-col bg-gray-800 rounded-2xl border border-gray-700 shadow-2xl h-[calc(100vh-160px)] sticky top-24">
+            <div class="p-4 border-b border-gray-700 flex items-center gap-3">
+                <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                <span class="font-bold">Analista AI</span>
+            </div>
+
+            <div id="chat-window" class="flex-1 overflow-y-auto p-4 space-y-4 chat-container">
+                <div class="bg-gray-900 p-3 rounded-2xl rounded-tl-none border border-gray-700 text-sm max-w-[85%] text-gray-300">
+                    Ciao! Sono pronto ad analizzare i tuoi investimenti. Chiedimi del tuo P&L o della tua diversificazione.
+                </div>
+            </div>
+
+            <div class="p-4 bg-gray-900 rounded-b-2xl border-t border-gray-700">
+                <div class="relative">
+                    <input id="chat-input" type="text" placeholder="Scrivi all'analista..."
+                           class="w-full bg-gray-800 border border-gray-700 p-3 pr-12 rounded-xl focus:outline-none focus:border-blue-500">
+                    <button onclick="chiediAI()" class="absolute right-2 top-2 p-1.5 text-blue-500 hover:text-blue-400 transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="modal-transazione" class="fixed inset-0 bg-black/80 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+            <div class="bg-gray-900 w-full max-w-lg rounded-2xl border border-gray-800 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+
+                <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/50">
+                    <h3 class="font-bold text-white">Aggiungi transazione</h3>
+                    <button onclick="chiudiModale()" class="text-gray-500 hover:text-white transition text-2xl">&times;</button>
+                </div>
+
+                <div class="p-6 space-y-5">
+                    <div class="relative">
+                        <label class="text-xs text-gray-500 block mb-1 uppercase tracking-wider font-bold">Strumento</label>
+                        <input type="text" id="ricerca-titolo" oninput="eseguiRicerca(this.value)"
+                               placeholder="Cerca per ticker o nome (es. Stella...)"
+                               class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl focus:outline-none focus:border-blue-500 text-white placeholder-gray-500">
+
+                        <div id="lista-suggerimenti" class="absolute w-full mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl hidden z-50 max-h-60 overflow-y-auto">
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="titolo-selezionato-id">
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-xs text-gray-500 block mb-1 uppercase font-bold">Quantità</label>
+                            <input type="number" id="m-quantita" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-500 block mb-1 uppercase font-bold">Prezzo Unitario</label>
+                            <input type="number" step="0.01" id="m-prezzo" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white">
+                        </div>
+                    </div>
+
+                    <button onclick="salvaTransazioneModale()" class="w-full bg-white text-black font-bold py-4 rounded-xl hover:bg-gray-200 transition shadow-lg mt-4">
+                        Salva Transazione
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+
+
+    <script>
+        // Configurazione: Inserisci qui il tuo Guid utente di test
+        const UTENTE_ID = "C206BEC1-A5DE-4896-8472-3FF512635B3A";
+
+        async function caricaPortafoglio() {
+            const res = await fetch(`/api/portafoglio/${UTENTE_ID}`);
+            const data = await res.json();
+
+            // --- CODICE PER IL GRAFICO ---
+            const labels = data.map(asset => asset.titolo.simbolo);
+            const values = data.map(asset => asset.quantitaTotale * asset.prezzoMedioCarico);
+            aggiornaGrafico(labels, values);
+            // -----------------------------
+
+            const tbody = document.getElementById('tabella-asset');
+            tbody.innerHTML = data.map(asset => `
+            <tr class="hover:bg-gray-750 transition">
+                <td class="px-6 py-4 font-medium text-white">${asset.titolo.simbolo} <span class="text-gray-500 text-xs ml-2">${asset.titolo.nome}</span></td>
+                <td class="px-6 py-4 text-right">${asset.quantitaTotale}</td>
+                <td class="px-6 py-4 text-right font-mono">${asset.prezzoMedioCarico.toFixed(2)}</td>
+                <td class="px-6 py-4 text-right text-gray-500">${asset.titolo.valuta}</td>
+            </tr>
+        `).join('');
+        }
+
+        async function salvaTransazioneModale() {
+            const titoloId = document.getElementById('titolo-selezionato-id').value;
+            const quantita = document.getElementById('m-quantita').value;
+            const prezzo = document.getElementById('m-prezzo').value;
+
+            if (!titoloId || !quantita || !prezzo) {
+                alert("Per favore, seleziona un titolo e inserisci quantità e prezzo.");
+                return;
+            }
+
+            const payload = {
+                quantita: parseFloat(quantita),
+                prezzoUnita: parseFloat(prezzo),
+                data: new Date().toISOString() // Data odierna
+            };
+
+            try {
+                // NOTA: Verifica che la rotta del tuo PortafoglioController 
+                // accetti l'ID del titolo (o il Ticker). 
+                // Se usi l'ID titolo, la rotta sarà simile a questa:
+                const res = await fetch(`/api/portafoglio/transazione?utenteId=${UTENTE_ID}&titoloId=${titoloId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    chiudiModale();
+                    // Aggiorna tutto in background
+                    await caricaPortafoglio();
+                    appendMessage("Ho aggiornato il tuo portafoglio con la nuova operazione!", 'ai');
+                } else {
+                    const err = await res.text();
+                    alert("Errore durante il salvataggio: " + err);
+                }
+            } catch (error) {
+                console.error("Errore fetch:", error);
+            }
+        }
+
+        async function chiediAI() {
+            const input = document.getElementById('chat-input');
+            const domanda = input.value.trim();
+            if (!domanda) return;
+
+            // 1. Mostriamo il messaggio dell'utente
+            appendMessage(domanda, 'user');
+            input.value = '';
+
+            // 2. AVVIAMO IL LOADER 
+            showLoader();
+
+            try {
+                const res = await fetch(`/api/chat/chiedi?utenteId=${UTENTE_ID}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(domanda)
+                });
+
+                const data = await res.json();
+
+                // 3. Mostriamo la risposta (appendMessage rimuoverà il loader automaticamente)
+                appendMessage(data.analista, 'ai');
+            } catch (error) {
+                console.error("Errore chat:", error);
+                // Rimuoviamo il loader se c'è un errore per non bloccare la UI
+                const loader = document.getElementById('ai-loader');
+                if (loader) loader.remove();
+                appendMessage("Scusa, si è verificato un errore nella connessione.", 'ai');
+            }
+        }
+
+        function appendMessage(text, role) {
+            const chatWindow = document.getElementById('chat-window');
+
+            // Se è un messaggio dell'AI, rimuoviamo l'eventuale "loader" precedente
+            if (role === 'ai') {
+                const loader = document.getElementById('ai-loader');
+                if (loader) loader.remove();
+            }
+
+            const div = document.createElement('div');
+            div.className = role === 'user'
+                ? "bg-blue-600 ml-auto p-3 rounded-2xl rounded-tr-none text-sm max-w-[85%] text-white shadow-lg"
+                : "bg-gray-900 p-3 rounded-2xl rounded-tl-none border border-gray-700 text-sm max-w-[85%] text-gray-300 shadow-md";
+
+            // Usiamo innerHTML invece di innerText per permettere la formattazione (Markdown-like)
+            // Sostituiamo i \n con <br> e i **testo** con <b>testo</b> per un rendering base
+            let formattedText = text
+                .replace(/\n/g, '<br>')
+                .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+                .replace(/- /g, '• ');
+
+            div.innerHTML = formattedText;
+
+            chatWindow.appendChild(div);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+
+            // Se abbiamo aggiunto MathJax (LaTeX), chiediamogli di processare il nuovo messaggio
+            if (window.MathJax && role === 'ai') {
+                MathJax.typesetPromise([div]);
+            }
+        }
+
+        // Funzione extra per mostrare che l'IA sta pensando
+        function showLoader() {
+            const chatWindow = document.getElementById('chat-window');
+            const loaderDiv = document.createElement('div');
+            loaderDiv.id = 'ai-loader';
+            loaderDiv.className = "bg-gray-800 p-3 rounded-2xl rounded-tl-none border border-gray-700 text-xs text-gray-500 animate-pulse w-max";
+            loaderDiv.innerText = "L'analista sta consultando i mercati...";
+            chatWindow.appendChild(loaderDiv);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        // Caricamento iniziale
+        caricaPortafoglio();
+
+        function apriModale() {
+            document.getElementById('modal-transazione').classList.remove('hidden');
+        }
+
+        function chiudiModale() {
+            document.getElementById('modal-transazione').classList.add('hidden');
+            // Pulizia
+            document.getElementById('ricerca-titolo').value = '';
+            document.getElementById('lista-suggerimenti').classList.add('hidden');
+        }
+
+        let timeoutRicerca;
+        async function eseguiRicerca(testo) {
+            const lista = document.getElementById('lista-suggerimenti');
+            clearTimeout(timeoutRicerca);
+
+            if (testo.length < 2) {
+                lista.classList.add('hidden');
+                return;
+            }
+
+            timeoutRicerca = setTimeout(async () => {
+                // NOTA: Usiamo 'query=' come confermato dal tuo test
+                const res = await fetch(`/api/titoli/cerca?query=${testo}`);
+                const titoli = await res.json();
+
+                if (titoli.length > 0) {
+                    lista.innerHTML = titoli.map(t => `
+                <div onclick="selezionaTitolo(${t.id}, '${t.simbolo}', '${t.nome}')" 
+                     class="flex items-center gap-3 p-3 hover:bg-gray-700 cursor-pointer border-b border-gray-700 last:border-0 transition">
+                    <div class="bg-blue-600/20 text-blue-400 w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold">
+                        ${t.simbolo.substring(0, 3)}
+                    </div>
+                    <div>
+                        <div class="text-sm font-bold text-white">${t.nome}</div>
+                        <div class="text-[10px] text-gray-500 uppercase">${t.simbolo} • ${t.valuta}</div>
+                    </div>
+                </div>
+            `).join('');
+                    lista.classList.remove('hidden');
+                } else {
+                    lista.innerHTML = '<div class="p-4 text-sm text-gray-500 text-center">Nessun titolo trovato</div>';
+                    lista.classList.remove('hidden');
+                }
+            }, 300);
+        }
+
+        function selezionaTitolo(id, simbolo, nome) {
+            document.getElementById('titolo-selezionato-id').value = id;
+            document.getElementById('ricerca-titolo').value = `${nome} (${simbolo})`;
+            document.getElementById('lista-suggerimenti').classList.add('hidden');
+        }
+
+    </script>
+
+</body>
+</html>

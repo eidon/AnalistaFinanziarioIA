@@ -14,19 +14,19 @@ public class PortafoglioController(IPortafoglioRepository repository) : Controll
     [HttpPost("transazione")]
     public async Task<IActionResult> RegistraOperazione(
         [FromQuery] Guid utenteId,
-        [FromQuery] string ticker,
+        [FromQuery] int titoloId, 
         [FromBody] Transazione transazione)
     {
         try
         {
-            // Il repository si occuperà di trovare il titolo, l'utente 
-            // e ricalcolare il prezzo medio di carico (PMC)
-            var assetAggiornato = await repository.AggiungiTransazioneAsync(transazione, utenteId, ticker);
+            // 2. Passiamo l'int titoloId al repository
+            var assetAggiornato = await repository.AggiungiTransazioneAsync(transazione, utenteId, titoloId);
 
             return Ok(new
             {
                 Messaggio = "Operazione registrata con successo",
-                Simbolo = ticker,
+                // 3. Usiamo l'ID restituito dall'asset aggiornato o il parametro titoloId
+                TitoloId = titoloId,
                 NuovaQuantita = assetAggiornato.QuantitaTotale,
                 NuovoPrezzoMedio = assetAggiornato.PrezzoMedioCarico
             });
@@ -36,6 +36,8 @@ public class PortafoglioController(IPortafoglioRepository repository) : Controll
             return BadRequest(new { Errore = ex.Message });
         }
     }
+
+
 
     /// <summary>
     /// Recupera la situazione attuale del portafoglio di un utente.

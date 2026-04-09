@@ -50,6 +50,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// --- AGGIUNGI QUESTE RIGHE ---
+app.UseDefaultFiles(); // Cerca automaticamente index.html
+app.UseStaticFiles();  // Abilita il servizio dei file nella cartella wwwroot
+//
+
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();

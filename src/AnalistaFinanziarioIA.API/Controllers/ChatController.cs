@@ -20,11 +20,10 @@ public class ChatController(Kernel kernel, IPortafoglioRepository repository, IC
             {
                 ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions
             };
-            var mercatoPlugin = new MercatoPlugin(configuration);
 
             // 2. Registriamo il plugin (se non l'hai già fatto globalmente)
             kernel.Plugins.AddFromObject(new PortafoglioPlugin(repository), "PortafoglioManager");
-            kernel.Plugins.AddFromObject(mercatoPlugin, "MercatoManager");
+            kernel.Plugins.AddFromObject(new MercatoPlugin(configuration), "MercatoManager");
 
             // 3. Prepariamo il messaggio di sistema per "svegliare" l'IA
             var promptDestinatoIA = 
