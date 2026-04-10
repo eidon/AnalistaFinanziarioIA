@@ -6,6 +6,8 @@ namespace AnalistaFinanziarioIA.Core.Interfaces
     {
         Task<AssetPortafoglio> AggiungiTransazioneAsync(Transazione transazione, Guid utenteId, int titoloId);
         Task<IEnumerable<AssetPortafoglio>> GetPortafoglioUtenteAsync(Guid utenteId);
-        Task<decimal> CalcolaRendimentoTotaleAsync(int assetId);
+        Task<decimal> CalcolaRendimentoTotaleAsync(int assetId, decimal prezzoAttuale);
+        Task<Titolo?> GetTitoloBySimboloAsync(string simbolo);
+        Task UpdateTitoloAsync(Titolo titolo);
     }
 }

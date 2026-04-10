@@ -1,10 +1,11 @@
-﻿using System.ComponentModel;
+﻿using AnalistaFinanziarioIA.Core.Interfaces;
 using Microsoft.SemanticKernel;
+using System.ComponentModel;
 using System.Text.Json;
 
 namespace AnalistaFinanziarioIA.API.Plugins;
 
-public class MercatoPlugin(IConfiguration configuration)
+public class MercatoPlugin(IConfiguration configuration, IPortafoglioRepository repository)
 {
     private readonly string _apiKey = configuration["AlphaVantage:ApiKey"] ?? throw new Exception("ApiKey AlphaVantage mancante!");
     private readonly HttpClient _httpClient = new();
@@ -29,4 +30,32 @@ public class MercatoPlugin(IConfiguration configuration)
 
         return $"Non sono riuscito a trovare il prezzo in tempo reale per {ticker}.";
     }
+
+    [KernelFunction("AggiornaPrezzoTitolo")]
+    [Description("Aggiorna il prezzo di mercato (UltimoPrezzo) di un titolo nel database.")]
+    public async Task<string> AggiornaPrezzoTitolo(string simbolo, decimal nuovoPrezzo)
+    {
+        try
+        {
+            // 1. Cerchiamo il titolo nel DB tramite il simbolo (es. NVDA)
+            var titolo = await repository.GetTitoloBySimboloAsync(simbolo);
+
+            if (titolo == null)
+                return $"Titolo {simbolo} non trovato nel database. Verificare il ticker.";
+
+            // 2. Aggiorniamo il campo che abbiamo creato con la migrazione
+            titolo.UltimoPrezzo = nuovoPrezzo;
+
+            // 3. Salviamo le modifiche
+            await repository.UpdateTitoloAsync(titolo);
+
+            return $"Database aggiornato: {simbolo} ora quota {nuovoPrezzo}.";
+        }
+        catch (Exception ex)
+        {
+            return $"Errore tecnico durante l'aggiornamento di {simbolo}: {ex.Message}";
+        }
+    }
+
+
 }

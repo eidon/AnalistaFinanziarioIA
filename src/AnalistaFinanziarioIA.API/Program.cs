@@ -3,14 +3,19 @@ using AnalistaFinanziarioIA.Infrastructure.Data;
 using AnalistaFinanziarioIA.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Connectors.OpenAI; 
+using Microsoft.SemanticKernel.Connectors.OpenAI;
+using FluentValidation;
+using AnalistaFinanziarioIA.Core.Validators;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// 1. Registra i servizi dei Controller
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// 2. Registra tutti i validatori presenti nell'assembly dove si trova TitoloCreateValidator
+builder.Services.AddValidatorsFromAssemblyContaining<TitoloCreateValidator>();
 
 // Database
 builder.Services.AddDbContext<AnalistaFinanziarioDbContext>(options =>

@@ -7,16 +7,27 @@ namespace AnalistaFinanziarioIA.API.Plugins;
 public class PortafoglioPlugin(IPortafoglioRepository repository)
 {
     [KernelFunction]
-    [Description("Recupera la composizione attuale del portafoglio di un utente per ticker, quantità e prezzo medio.")]
+    // Aggiorniamo la descrizione: l'IA deve sapere che qui trova anche le note strategiche
+    [Description("Recupera la composizione del portafoglio, inclusi PMC (con tasse/commissioni) e note strategiche dell'utente.")]
     public async Task<string> GetComposizionePortafoglio(Guid utenteId)
     {
         var assets = await repository.GetPortafoglioUtenteAsync(utenteId);
 
-        if (!assets.Any()) return "Il portafoglio è vuoto.";
+        if (assets == null || !assets.Any())
+            return "Il portafoglio è attualmente vuoto.";
 
-        var report = assets.Select(a =>
-            $"- Titolo: {a.Titolo?.Nome}, Quantità: {a.QuantitaTotale:N2}, PMC: {a.PrezzoMedioCarico:N2} {a.Titolo?.Valuta}");
+        // Costruiamo un report più ricco
+        var report = assets.Select(a => {
+            // Recuperiamo l'ultima nota per dare contesto alle intenzioni dell'utente
+            var ultimaNota = a.Transazioni?.OrderByDescending(t => t.Data).FirstOrDefault()?.Note;
+            var notaTesto = string.IsNullOrWhiteSpace(ultimaNota) ? "Nessuna nota inserita" : ultimaNota;
 
-        return "Ecco i titoli in portafoglio:\n" + string.Join("\n", report);
+            return $"- Titolo: {a.Titolo?.Simbolo} ({a.Titolo?.Nome}), " +
+                   $"Quantità: {a.QuantitaTotale:N2}, " +
+                   $"PMC: {a.PrezzoMedioCarico:N2} {a.Titolo?.Valuta} (Costi inclusi), " +
+                   $"Nota Strategica: {notaTesto}";
+        });
+
+        return "Ecco i dettagli del portafoglio aggiornati:\n" + string.Join("\n", report);
     }
 }

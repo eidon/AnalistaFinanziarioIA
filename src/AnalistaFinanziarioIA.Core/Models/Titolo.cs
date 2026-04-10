@@ -14,6 +14,8 @@ public class Titolo
     public DateTime DataCreazione { get; set; } = DateTime.Now;
     public TipoTitolo Categoria { get; set; }
 
+    public decimal UltimoPrezzo { get; set; }
+
     public ICollection<QuotazioneStorica> QuotazioniStoriche { get; set; } = new List<QuotazioneStorica>();
     public ICollection<AnalisiFinanziaria> Analisi { get; set; } = new List<AnalisiFinanziaria>();
 }

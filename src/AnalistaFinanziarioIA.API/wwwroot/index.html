@@ -139,6 +139,28 @@
                         </div>
                     </div>
 
+                    <div class="grid grid-cols-2 gap-4 mt-4">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Commissioni (€)</label>
+                            <input type="number" id="m-commissioni" step="0.01" value="0"
+                                   class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Tasse/Bolli (€)</label>
+                            <input type="number" id="m-tasse" step="0.01" value="0"
+                                   class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <label class="block text-xs text-gray-400 mb-1">Note operazione</label>
+                        <input type="text" id="m-note" placeholder="es: Strategia lungo termine"
+                               class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500 text-sm">
+                    </div>
+
+                    <div id="modal-error-container" class="hidden mb-4 p-3 bg-red-900/30 border border-red-500 rounded-lg text-red-200 text-sm">
+                    </div>
+
                     <button onclick="salvaTransazioneModale()" class="w-full bg-white text-black font-bold py-4 rounded-xl hover:bg-gray-200 transition shadow-lg mt-4">
                         Salva Transazione
                     </button>
@@ -159,25 +181,58 @@
 
             // --- CODICE PER IL GRAFICO ---
             const labels = data.map(asset => asset.titolo.simbolo);
+            // Il grafico mostra il "Valore di Carico" (quanto hai investito realmente)
             const values = data.map(asset => asset.quantitaTotale * asset.prezzoMedioCarico);
             aggiornaGrafico(labels, values);
-            // -----------------------------
 
             const tbody = document.getElementById('tabella-asset');
-            tbody.innerHTML = data.map(asset => `
-            <tr class="hover:bg-gray-750 transition">
-                <td class="px-6 py-4 font-medium text-white">${asset.titolo.simbolo} <span class="text-gray-500 text-xs ml-2">${asset.titolo.nome}</span></td>
-                <td class="px-6 py-4 text-right">${asset.quantitaTotale}</td>
-                <td class="px-6 py-4 text-right font-mono">${asset.prezzoMedioCarico.toFixed(2)}</td>
-                <td class="px-6 py-4 text-right text-gray-500">${asset.titolo.valuta}</td>
-            </tr>
-        `).join('');
+
+            tbody.innerHTML = data.map(asset => {
+                // 1. Definiamo un prezzo attuale (MOCK) 
+                // In futuro questo arriverà dal backend o da un'API di borsa
+                const prezzoAttuale = asset.titolo.ultimoPrezzo || (asset.prezzoMedioCarico * 1.05); // Simuliamo un +5%
+
+                // 2. Calcolo Gain/Loss
+                const gainLossTotale = (prezzoAttuale - asset.prezzoMedioCarico) * asset.quantitaTotale;
+                const gainLossPercentuale = ((prezzoAttuale - asset.prezzoMedioCarico) / asset.prezzoMedioCarico) * 100;
+
+                // 3. Colore in base al risultato
+                const colorClass = gainLossTotale >= 0 ? 'text-green-400' : 'text-red-400';
+                const plusMinus = gainLossTotale >= 0 ? '+' : '';
+
+                const rendimentoTotale = asset.rendimentoTotale; // Dato che ora arriva dal backend
+                const coloreRendimento = rendimentoTotale >= 0 ? 'text-green-400' : 'text-red-400';
+
+                return `
+                <tr class="hover:bg-gray-750 transition border-b border-gray-800">
+                    <td class="px-4 py-3">
+                        <div class="font-medium text-white">${asset.titolo.simbolo}</div>
+                        <div class="text-gray-500 text-xs">${asset.titolo.nome}</div>
+                    </td>
+                    <td class="px-4 py-3 text-right">${asset.quantitaTotale}</td>
+                    <td class="px-4 py-3 text-right font-mono text-gray-300">€ ${asset.prezzoMedioCarico.toFixed(2)}</td>
+                    <td class="px-4 py-3 text-right font-mono">
+                        <div class="${colorClass}">${plusMinus}${gainLossTotale.toFixed(2)}€</div>
+            
+                        <div class="text-[10px] ${coloreRendimento} font-bold" title="Inclusi dividendi netti">
+                            Total: ${rendimentoTotale >= 0 ? '+' : ''}${rendimentoTotale.toFixed(2)}€
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 text-right text-gray-500 text-xs">${asset.titolo.valuta}</td>
+                </tr>
+            `;
+            }).join('');
         }
 
         async function salvaTransazioneModale() {
             const titoloId = document.getElementById('titolo-selezionato-id').value;
             const quantita = document.getElementById('m-quantita').value;
             const prezzo = document.getElementById('m-prezzo').value;
+
+            // Recuperiamo i nuovi campi
+            const commissioni = document.getElementById('m-commissioni').value || 0;
+            const tasse = document.getElementById('m-tasse').value || 0;
+            const note = document.getElementById('m-note').value;
 
             if (!titoloId || !quantita || !prezzo) {
                 alert("Per favore, seleziona un titolo e inserisci quantità e prezzo.");
@@ -187,31 +242,74 @@
             const payload = {
                 quantita: parseFloat(quantita),
                 prezzoUnita: parseFloat(prezzo),
-                data: new Date().toISOString() // Data odierna
+                commissioni: parseFloat(commissioni),
+                tasse: parseFloat(tasse),
+                note: note,
+                data: new Date().toISOString()
             };
 
             try {
-                // NOTA: Verifica che la rotta del tuo PortafoglioController 
-                // accetti l'ID del titolo (o il Ticker). 
-                // Se usi l'ID titolo, la rotta sarà simile a questa:
                 const res = await fetch(`/api/portafoglio/transazione?utenteId=${UTENTE_ID}&titoloId=${titoloId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
 
-                if (res.ok) {
+                if (res.ok)
+                {
+                    // ... (logica successo rimane uguale) ...
                     chiudiModale();
-                    // Aggiorna tutto in background
                     await caricaPortafoglio();
-                    appendMessage("Ho aggiornato il tuo portafoglio con la nuova operazione!", 'ai');
-                } else {
-                    const err = await res.text();
-                    alert("Errore durante il salvataggio: " + err);
+                }
+                else
+                {
+                    // PROVA A LEGGERE IL JSON DEGLI ERRORI
+                    try
+                    {
+                        const errorData = await res.json();
+                        console.log("Dettagli errore dal server:", errorData);
+
+                        let messaggi = [];
+
+                        // CASO 1: Formato standard ASP.NET (quello del tuo screenshot)
+                        if (errorData.errors) {
+                            // Estraiamo tutti i messaggi da ogni campo (Quantita, Prezzo, ecc.)
+                            for (const campo in errorData.errors) {
+                                const erroriCampo = errorData.errors[campo];
+                                if (Array.isArray(erroriCampo)) {
+                                    messaggi.push(...erroriCampo);
+                                }
+                            }
+                        }
+                        // CASO 2: Array semplice di FluentValidation (se configurato diversamente)
+                        else if (Array.isArray(errorData)) {
+                            messaggi = errorData.map(e => e.errorMessage);
+                        }
+                        // CASO 3: Messaggio singolo
+                        else if (errorData.errore || errorData.title) {
+                            messaggi.push(errorData.errore || errorData.title);
+                        }
+
+                        if (messaggi.length > 0) {
+                            alert("Attenzione:\n" + messaggi.join("\n"));
+                        } else {
+                            alert("Errore imprevisto nel formato dati.");
+                        }
+
+                    } catch (e) {
+                        const textError = await res.text();
+                        alert("Errore del server: " + textError);
+                    }
                 }
             } catch (error) {
-                console.error("Errore fetch:", error);
+                console.error("Errore critico:", error);
             }
+        }
+
+        function mostraErroreModale(messaggio) {
+            const container = document.getElementById('modal-error-container');
+            container.textContent = messaggio;
+            container.classList.remove('hidden');
         }
 
         async function chiediAI() {

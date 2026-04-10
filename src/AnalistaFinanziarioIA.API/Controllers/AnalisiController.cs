@@ -1,3 +1,4 @@
+using AnalistaFinanziarioIA.Core.DTOs;
 using AnalistaFinanziarioIA.Core.Interfaces;
 using AnalistaFinanziarioIA.Core.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -31,18 +32,43 @@ public class AnalisiController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create(int titoloId, [FromBody] AnalisiFinanziaria analisi)
+    public async Task<IActionResult> Create(int titoloId, [FromBody] AnalisiCreateDto dto)
     {
-        analisi.TitoloId = titoloId;
+        // Creiamo l'entità internamente: il server ha il controllo totale
+        var analisi = new AnalisiFinanziaria
+        {
+            TitoloId = titoloId,           // Preso dall'URL (sicuro)
+            DataAnalisi = DateTime.UtcNow, // Decisa dal server (sicura)
+            Risultato = dto.Risultato,
+            PrezzoTarget = dto.PrezzoTarget,
+            Raccomandazione = dto.Raccomandazione,
+            Note = dto.Note
+        };
+
         var created = await _analisiRepository.AddAsync(analisi);
+
+        // Tipicamente qui restituiresti un AnalisiReadDto per non esporre l'intera entità
         return CreatedAtAction(nameof(GetById), new { titoloId, id = created.Id }, created);
     }
 
     [HttpPut("{id:int}")]
-    public async Task<IActionResult> Update(int titoloId, int id, [FromBody] AnalisiFinanziaria analisi)
+    public async Task<IActionResult> Update(int titoloId, int id, [FromBody] AnalisiUpdateDto dto)
     {
-        if (id != analisi.Id || titoloId != analisi.TitoloId) return BadRequest();
-        var updated = await _analisiRepository.UpdateAsync(analisi);
+        // 1. Recupera l'analisi esistente
+        var esistente = await _analisiRepository.GetByIdAsync(id);
+
+        // 2. Controllo coerenza: esiste? appartiene a questo titolo?
+        if (esistente is null || esistente.TitoloId != titoloId)
+            return NotFound("Analisi non trovata per questo titolo");
+
+        // 3. Aggiorna solo i campi che il DTO permette di modificare
+        esistente.Risultato = dto.Risultato;
+        esistente.PrezzoTarget = dto.PrezzoTarget;
+        esistente.Raccomandazione = dto.Raccomandazione;
+        esistente.Note = dto.Note;
+        // NON aggiorniamo TitoloId, Id o DataAnalisi: restano quelli originali.
+
+        var updated = await _analisiRepository.UpdateAsync(esistente);
         return Ok(updated);
     }
 
