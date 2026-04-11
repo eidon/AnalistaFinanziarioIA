@@ -9,5 +9,7 @@ namespace AnalistaFinanziarioIA.Core.Interfaces
         Task<decimal> CalcolaRendimentoTotaleAsync(int assetId, decimal prezzoAttuale);
         Task<Titolo?> GetTitoloBySimboloAsync(string simbolo);
         Task UpdateTitoloAsync(Titolo titolo);
+        Task<bool> EliminaTransazioneAsync(int transazioneId);
+        Task<IEnumerable<Transazione>> GetStoriaFiltrataAsync(Guid utenteId, string? searchTerm);
     }
 }

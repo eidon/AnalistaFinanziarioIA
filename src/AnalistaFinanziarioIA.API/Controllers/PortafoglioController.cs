@@ -3,22 +3,17 @@ using AnalistaFinanziarioIA.Core.Interfaces;
 using AnalistaFinanziarioIA.Core.Models;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 
 namespace AnalistaFinanziarioIA.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class PortafoglioController : ControllerBase
+public class PortafoglioController(
+    IPortafoglioRepository _repository,
+    IValidator<TransazioneInputDto> _validator,
+    IConfiguration _configuration) : ControllerBase
 {
-
-    private readonly IPortafoglioRepository _repository;
-    private readonly IValidator<TransazioneInputDto> _validator; // Iniezione del validatore
-
-    public PortafoglioController(IPortafoglioRepository repository, IValidator<TransazioneInputDto> validator)
-    {
-        _repository = repository;
-        _validator = validator;
-    }
 
     /// <summary>
     /// Registra un nuovo acquisto o vendita nel portafoglio.
@@ -81,33 +76,44 @@ public class PortafoglioController : ControllerBase
     {
         try
         {
-            // 1. Recuperiamo gli asset con tutti i dati necessari
             var assets = await _repository.GetPortafoglioUtenteAsync(utenteId);
-
             if (assets == null) return Ok(new List<object>());
 
-            // 2. Mappatura manuale per evitare loop circolari e crash
-            var listaDto = assets.Select(asset => {
+            // 1. Recuperiamo il tasso di cambio REALE una volta sola prima del ciclo
+            decimal tassoUsdEur = 0.92m; // Fallback di sicurezza
+            try
+            {
+                string apiKey = _configuration["ExchangeRate:ApiKey"];
+                using HttpClient client = new HttpClient();
+                var response = await client.GetFromJsonAsync<JsonElement>($"https://v6.exchangerate-api.com/v6/{apiKey}/latest/USD");
+                tassoUsdEur = response.GetProperty("conversion_rates").GetProperty("EUR").GetDecimal();
+            }
+            catch (Exception)
+            {
+                // Se l'API fallisce, userà il valore di 0.92 impostato sopra
+            }
 
-                // Se il prezzo nel DB è 0, usa il PMC così il rendimento sarà 0 invece di -100%
+            var listaDto = new List<object>();
+
+            foreach (var asset in assets)
+            {
                 decimal prezzoAttuale = asset.Titolo?.UltimoPrezzo > 0
                         ? asset.Titolo.UltimoPrezzo
                         : asset.PrezzoMedioCarico;
 
-                // Calcolo manuale rapido qui per evitare chiamate async multiple nel loop
-                // che spesso causano l'errore 500 se il context DB non è thread-safe
-                decimal dividendiNetti = asset.Dividendi?.Sum(d => d.ImportoLordo - d.TasseTrattenute) ?? 0;
-                decimal valoreAttualeMercato = asset.QuantitaTotale * prezzoAttuale;
-                decimal costoTotaleAcquisto = asset.QuantitaTotale * asset.PrezzoMedioCarico;
+                decimal rendimentoTotaleRaw = await _repository.CalcolaRendimentoTotaleAsync(asset.Id, prezzoAttuale);
 
-                decimal rendimentoTotale = (valoreAttualeMercato + dividendiNetti) - costoTotaleAcquisto;
+                // 2. Usiamo il tasso dinamico recuperato dall'API
+                decimal rendimentoInEur = asset.Titolo?.Valuta == "USD"
+                    ? rendimentoTotaleRaw * tassoUsdEur  // Se l'API dice 0.92, 100$ diventano 92€
+                    : rendimentoTotaleRaw;
 
-                return new
+                listaDto.Add(new
                 {
                     Id = asset.Id,
                     QuantitaTotale = asset.QuantitaTotale,
                     PrezzoMedioCarico = asset.PrezzoMedioCarico,
-                    RendimentoTotale = rendimentoTotale,
+                    RendimentoTotale = rendimentoInEur,
                     Titolo = new
                     {
                         Simbolo = asset.Titolo?.Simbolo ?? "N/A",
@@ -115,8 +121,8 @@ public class PortafoglioController : ControllerBase
                         Valuta = asset.Titolo?.Valuta ?? "EUR",
                         UltimoPrezzo = prezzoAttuale
                     }
-                };
-            }).ToList();
+                });
+            }
 
             return Ok(listaDto);
         }
@@ -125,5 +131,34 @@ public class PortafoglioController : ControllerBase
             // Questo ti permette di vedere l'errore vero nei log invece di un generico 500
             return StatusCode(500, $"Errore interno: {ex.Message}");
         }
+    }
+
+    [HttpGet("storia/{utenteId}")]
+    public async Task<IActionResult> GetStoria(Guid utenteId, [FromQuery] string? search)
+    {
+        var transazioni = await _repository.GetStoriaFiltrataAsync(utenteId, search);
+
+        // Trasformiamo i dati per la UI "a timeline"
+        var risultato = transazioni
+            .GroupBy(t => new { t.Data.Year, t.Data.Month })
+            .Select(g => new
+            {
+                MeseAnno = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMMM yyyy"),
+                Transazioni = g.Select(t => new
+                {
+                    t.Id,
+                    t.Data,
+                    GiornoMese = t.Data.ToString("dd.MM"),
+                    Titolo = t.AssetPortafoglio.Titolo.Nome,
+                    Ticker = t.AssetPortafoglio.Titolo.Simbolo,
+                    Tipo = t.Tipo.ToString(),
+                    Dettaglio = $"{t.Tipo} x{t.Quantita} a {t.PrezzoUnita:N2} {t.AssetPortafoglio.Titolo.Valuta}",
+                    Totale = t.Quantita * t.PrezzoUnita,
+                    Valuta = t.AssetPortafoglio.Titolo.Valuta
+                })
+            })
+            .ToList();
+
+        return Ok(risultato);
     }
 }

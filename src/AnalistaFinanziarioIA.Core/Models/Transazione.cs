@@ -15,5 +15,7 @@
         // Tasso di cambio al momento della transazione (es. EUR/USD)
         public decimal TassoCambio { get; set; }
         public DateTime Data { get; set; } = DateTime.UtcNow;
+
+        public virtual AssetPortafoglio AssetPortafoglio { get; set; } = null!;
     }
 }
