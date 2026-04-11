@@ -57,6 +57,20 @@
                 }
             </script>
 
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-xl">
+                    <p class="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Valore Totale Portafoglio</p>
+                    <h2 id="valore-totale-eur" class="text-3xl font-bold text-white">€ 0.00</h2>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-xl">
+                    <p class="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Profitto/Perdita Totale</p>
+                    <div class="flex items-baseline space-x-2">
+                        <h2 id="profitto-totale-eur" class="text-3xl font-bold">0.00€</h2>
+                        <span id="percentuale-totale" class="text-sm font-semibold">0.00%</span>
+                    </div>
+                </div>
+            </div>
+
             <section class="bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-700">
                 <div class="p-6 border-b border-gray-700 flex justify-between items-center">
                     <h2 class="text-lg font-semibold">Asset nel Portafoglio</h2>
@@ -176,51 +190,84 @@
         const UTENTE_ID = "C206BEC1-A5DE-4896-8472-3FF512635B3A";
 
         async function caricaPortafoglio() {
-            const res = await fetch(`/api/portafoglio/${UTENTE_ID}`);
+            const url = `/api/portafoglio/dashboard/${UTENTE_ID}`;
+            console.log("Chiamata a:", url); // Debug per essere sicuri
+
+            const res = await fetch(url);
             const data = await res.json();
 
+            // 1. Estraiamo gli asset (gestendo sia minuscole che maiuscole)
+            const assets = data.assets || data.Assets || [];
+
+            // --- AGGIORNAMENTO TOTALI UI (Opzionale, se hai questi ID nel tuo HTML) ---
+            // 1. Aggiorna i box dei Totali
+            // Verifica che 'data' esista e contenga le proprietà prima di usarle
+            if (data) {
+                const elValore = document.getElementById('valore-totale-eur');
+                const elProfitto = document.getElementById('profitto-totale-eur');
+                const elPercentuale = document.getElementById('percentuale-totale');
+
+                // Nota la 't' e la 'p' minuscole!
+                const totaleEur = data.totalePortafoglioEur || 0;
+                const profittoEur = data.profittoTotaleEur || 0;
+                const percentuale = data.percentualeTotale || 0;
+
+                if (elValore) {
+                    elValore.innerText = `€ ${totaleEur.toLocaleString('it-IT', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    })}`;
+                }
+
+                if (elProfitto) {
+                    elProfitto.innerText = `${profittoEur >= 0 ? '+' : ''}${profittoEur.toLocaleString('it-IT', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    })}€`;
+                    elProfitto.className = `text-3xl font-bold ${profittoEur >= 0 ? 'text-green-400' : 'text-red-400'}`;
+                }
+
+                if (elPercentuale) {
+                    elPercentuale.innerText = `(${percentuale >= 0 ? '+' : ''}${percentuale.toFixed(2)}%)`;
+                    elPercentuale.className = `text-sm font-semibold ${percentuale >= 0 ? 'text-green-400' : 'text-red-400'}`;
+                }
+            }
+
             // --- CODICE PER IL GRAFICO ---
-            const labels = data.map(asset => asset.titolo.simbolo);
-            // Il grafico mostra il "Valore di Carico" (quanto hai investito realmente)
-            const values = data.map(asset => asset.quantitaTotale * asset.prezzoMedioCarico);
+            const labels = assets.map(a => a.ticker);
+            // Usiamo InvestitoTotale dal DTO
+            const values = assets.map(a => a.investitoTotale);
             aggiornaGrafico(labels, values);
 
             const tbody = document.getElementById('tabella-asset');
 
-            tbody.innerHTML = data.map(asset => {
-                // 1. Definiamo un prezzo attuale (MOCK) 
-                // In futuro questo arriverà dal backend o da un'API di borsa
-                const prezzoAttuale = asset.titolo.ultimoPrezzo || (asset.prezzoMedioCarico * 1.05); // Simuliamo un +5%
+            tbody.innerHTML = assets.map(a => {
+                // Usiamo i nomi delle proprietà che arrivano dal C# (camelCase in JS)
+                // a.prezzoAttuale, a.pmc, a.guadagnoAssoluto, a.guadagnoPercentuale
 
-                // 2. Calcolo Gain/Loss
-                const gainLossTotale = (prezzoAttuale - asset.prezzoMedioCarico) * asset.quantitaTotale;
-                const gainLossPercentuale = ((prezzoAttuale - asset.prezzoMedioCarico) / asset.prezzoMedioCarico) * 100;
-
-                // 3. Colore in base al risultato
-                const colorClass = gainLossTotale >= 0 ? 'text-green-400' : 'text-red-400';
-                const plusMinus = gainLossTotale >= 0 ? '+' : '';
-
-                const rendimentoTotale = asset.rendimentoTotale; // Dato che ora arriva dal backend
-                const coloreRendimento = rendimentoTotale >= 0 ? 'text-green-400' : 'text-red-400';
+                const colorClass = a.guadagnoAssoluto >= 0 ? 'text-green-400' : 'text-red-400';
+                const plusMinus = a.guadagnoAssoluto >= 0 ? '+' : '';
 
                 return `
-                <tr class="hover:bg-gray-750 transition border-b border-gray-800">
-                    <td class="px-4 py-3">
-                        <div class="font-medium text-white">${asset.titolo.simbolo}</div>
-                        <div class="text-gray-500 text-xs">${asset.titolo.nome}</div>
-                    </td>
-                    <td class="px-4 py-3 text-right">${asset.quantitaTotale}</td>
-                    <td class="px-4 py-3 text-right font-mono text-gray-300">€ ${asset.prezzoMedioCarico.toFixed(2)}</td>
-                    <td class="px-4 py-3 text-right font-mono">
-                        <div class="${colorClass}">${plusMinus}${gainLossTotale.toFixed(2)}€</div>
-            
-                        <div class="text-[10px] ${coloreRendimento} font-bold" title="Inclusi dividendi netti">
-                            Total: ${rendimentoTotale >= 0 ? '+' : ''}${rendimentoTotale.toFixed(2)}€
-                        </div>
-                    </td>
-                    <td class="px-4 py-3 text-right text-gray-500 text-xs">${asset.titolo.valuta}</td>
-                </tr>
-            `;
+        <tr class="hover:bg-gray-750 transition border-b border-gray-800">
+            <td class="px-4 py-3">
+                <div class="font-medium text-white">${a.ticker}</div>
+                <div class="text-gray-500 text-xs">${a.titoloNome}</div>
+            </td>
+            <td class="px-4 py-3 text-right">${a.quantita}</td>
+            <td class="px-4 py-3 text-right font-mono text-gray-300">€ ${a.pmc.toFixed(2)}</td>
+            <td class="px-4 py-3 text-right font-mono">
+                <div class="${colorClass}">${plusMinus}${a.guadagnoAssoluto.toFixed(2)}€</div>
+                <div class="text-[10px] ${colorClass} font-bold">
+                    ${plusMinus}${a.guadagnoPercentuale.toFixed(2)}%
+                </div>
+            </td>
+            <td class="px-4 py-3 text-right text-gray-400 font-mono text-sm">
+                € ${a.prezzoAttuale.toFixed(2)}
+            </td>
+            <td class="px-4 py-3 text-right text-gray-500 text-xs">${a.valuta}</td>
+        </tr>
+    `;
             }).join('');
         }
 

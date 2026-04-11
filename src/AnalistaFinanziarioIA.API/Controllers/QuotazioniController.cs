@@ -6,14 +6,8 @@ namespace AnalistaFinanziarioIA.API.Controllers;
 
 [ApiController]
 [Route("api/titoli/{titoloId:int}/[controller]")]
-public class QuotazioniController : ControllerBase
+public class QuotazioniController(IQuotazioneRepository _quotazioneRepository, IQuotazioneService _quotazioneService) : ControllerBase
 {
-    private readonly IQuotazioneRepository _quotazioneRepository;
-
-    public QuotazioniController(IQuotazioneRepository quotazioneRepository)
-    {
-        _quotazioneRepository = quotazioneRepository;
-    }
 
     [HttpGet]
     public async Task<IActionResult> GetByTitolo(int titoloId)
@@ -53,5 +47,16 @@ public class QuotazioniController : ControllerBase
         }
         await _quotazioneRepository.AddRangeAsync(quotazioni);
         return NoContent();
+    }
+
+    [HttpPost("aggiorna")]
+    public async Task<IActionResult> AggiornaPrezzo(int titoloId)
+    {
+        var prezzo = await _quotazioneService.AggiornaPrezzoTitoloAsync(titoloId);
+
+        if (prezzo > 0)
+            return Ok(new { Messaggio = "Prezzo aggiornato con successo", Prezzo = prezzo });
+
+        return BadRequest("Impossibile recuperare il prezzo. Controlla il ticker o il limite API.");
     }
 }

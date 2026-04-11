@@ -4,6 +4,7 @@ using AnalistaFinanziarioIA.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AnalistaFinanziarioIA.Infrastructure.Migrations
 {
     [DbContext(typeof(AnalistaFinanziarioDbContext))]
-    partial class AnalistaFinanziarioDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260411123642_UpdateTransazioniSchema")]
+    partial class UpdateTransazioniSchema
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -183,9 +186,6 @@ namespace AnalistaFinanziarioIA.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("GETDATE()");
-
-                    b.Property<DateTime>("DataUltimoPrezzo")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("Isin")
                         .HasColumnType("nvarchar(max)");

@@ -87,7 +87,7 @@ public class MercatoPlugin(IConfiguration configuration, IPortafoglioRepository 
 
             return tassoEur;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // Se l'API non risponde, restituiamo il valore di fallback 
             // per non bloccare l'intera Dashboard

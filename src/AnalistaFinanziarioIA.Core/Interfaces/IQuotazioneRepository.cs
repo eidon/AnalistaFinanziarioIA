@@ -9,4 +9,5 @@ public interface IQuotazioneRepository
     Task<QuotazioneStorica?> GetUltimaQuotazioneAsync(int titoloId);
     Task<QuotazioneStorica> AddAsync(QuotazioneStorica quotazione);
     Task AddRangeAsync(IEnumerable<QuotazioneStorica> quotazioni);
+    Task SalvaQuotazioneAsync(int titoloId, decimal prezzo);
 }

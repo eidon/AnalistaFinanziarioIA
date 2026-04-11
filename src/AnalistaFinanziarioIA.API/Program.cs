@@ -1,11 +1,13 @@
 using AnalistaFinanziarioIA.Core.Interfaces;
+using AnalistaFinanziarioIA.Core.Services;
+using AnalistaFinanziarioIA.Core.Validators;
 using AnalistaFinanziarioIA.Infrastructure.Data;
 using AnalistaFinanziarioIA.Infrastructure.Repositories;
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
-using FluentValidation;
-using AnalistaFinanziarioIA.Core.Validators;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,11 +23,40 @@ builder.Services.AddValidatorsFromAssemblyContaining<TitoloCreateValidator>();
 builder.Services.AddDbContext<AnalistaFinanziarioDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Registrazione dei Servizi (Business Logic)
+builder.Services.AddScoped<IValutaService, ValutaService>();
+builder.Services.AddScoped<PortafoglioService>();
+
+
 // Repositories
 builder.Services.AddScoped<ITitoloRepository, TitoloRepository>();
 builder.Services.AddScoped<IQuotazioneRepository, QuotazioneRepository>();
 builder.Services.AddScoped<IAnalisiRepository, AnalisiRepository>();
 builder.Services.AddScoped<IPortafoglioRepository, PortafoglioRepository>();
+
+builder.Services.AddHttpClient();
+
+// Registra il Client HTTP per il servizio quotazioni
+// 2. Registriamo il Service risolvendo manualmente le dipendenze
+builder.Services.AddScoped<IQuotazioneService>(sp =>
+{
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient();
+    var repo = sp.GetRequiredService<IQuotazioneRepository>();
+    var titoloRepo = sp.GetRequiredService<ITitoloRepository>();
+    var config = sp.GetRequiredService<IConfiguration>();
+    var apiKey = config["AlphaVantage:ApiKey"] ?? "demo";
+
+    return new QuotazioneService(httpClient, repo, titoloRepo, apiKey);
+});
+
+builder.Services.AddScoped<ITitoloService>(sp =>
+{
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient();
+    var config = sp.GetRequiredService<IConfiguration>();
+    var apiKey = config["AlphaVantage:ApiKey"] ?? "demo";
+
+    return new TitoloService(httpClient, apiKey);
+});
 
 // Configurazione Kernel (IA)
 var openAiConfig = builder.Configuration.GetSection("OpenAI");
