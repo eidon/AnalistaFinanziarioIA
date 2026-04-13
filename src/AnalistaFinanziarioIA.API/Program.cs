@@ -33,6 +33,7 @@ builder.Services.AddScoped<ITitoloRepository, TitoloRepository>();
 builder.Services.AddScoped<IQuotazioneRepository, QuotazioneRepository>();
 builder.Services.AddScoped<IAnalisiRepository, AnalisiRepository>();
 builder.Services.AddScoped<IPortafoglioRepository, PortafoglioRepository>();
+//builder.Services.AddScoped<ITitoloService, TitoloService>();
 
 builder.Services.AddHttpClient();
 
@@ -53,7 +54,7 @@ builder.Services.AddScoped<ITitoloService>(sp =>
 {
     var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient();
     var config = sp.GetRequiredService<IConfiguration>();
-    var apiKey = config["AlphaVantage:ApiKey"] ?? "demo";
+    var apiKey = config["FinancialModelingPrep:ApiKey"] ?? "demo";
 
     return new TitoloService(httpClient, apiKey);
 });

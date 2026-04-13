@@ -14,6 +14,29 @@
             background: #4b5563;
             border-radius: 10px;
         }
+        /* Styling della scrollbar per la lista suggerimenti */
+        #lista-suggerimenti::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #lista-suggerimenti::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        #lista-suggerimenti::-webkit-scrollbar-thumb {
+            background: #4b5563; /* Corrisponde a gray-600 di Tailwind */
+            border-radius: 10px;
+        }
+
+            #lista-suggerimenti::-webkit-scrollbar-thumb:hover {
+                background: #6b7280; /* Corrisponde a gray-500 */
+            }
+
+        /* Effetto per rendere lo sfondo della lista leggermente sfocato (opzionale ma bello) */
+        .backdrop-blur-md {
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
     </style>
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
@@ -132,15 +155,26 @@
                 <div class="p-6 space-y-5">
                     <div class="relative">
                         <label class="text-xs text-gray-500 block mb-1 uppercase tracking-wider font-bold">Strumento</label>
-                        <input type="text" id="ricerca-titolo" oninput="eseguiRicerca(this.value)"
-                               placeholder="Cerca per ticker o nome (es. Stella...)"
-                               class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl focus:outline-none focus:border-blue-500 text-white placeholder-gray-500">
 
-                        <div id="lista-suggerimenti" class="absolute w-full mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl hidden z-50 max-h-60 overflow-y-auto">
+                        <div class="relative mb-4">
+                            <input type="text" id="ricerca-titolo" oninput="eseguiRicerca(this.value)"
+                                   placeholder="Cerca per ticker o nome (es. Leonardo...)"
+                                   class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl focus:outline-none focus:border-blue-500 text-white placeholder-gray-500">
+
+                            <div id="lista-suggerimenti" class="absolute w-full mt-1 bg-gray-800/95 backdrop-blur-md border border-gray-700 rounded-xl shadow-2xl hidden z-50 max-h-64 overflow-y-auto">
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="text-xs text-gray-500 block mb-1 uppercase font-bold tracking-wider">Codice ISIN (Opzionale)</label>
+                            <input type="text" id="m-isin"
+                                   placeholder="Inserisci ISIN se conosciuto (es. IT0003856405)"
+                                   class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white focus:border-blue-500 transition-colors">
+                            <p class="text-[10px] text-gray-500 mt-1 italic">Verrà tentato il recupero automatico, ma puoi modificarlo.</p>
                         </div>
                     </div>
 
                     <input type="hidden" id="titolo-selezionato-id">
+                    <input type="hidden" id="titolo-selezionato-json">
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
@@ -151,6 +185,11 @@
                             <label class="text-xs text-gray-500 block mb-1 uppercase font-bold">Prezzo Unitario</label>
                             <input type="number" step="0.01" id="m-prezzo" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white">
                         </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <label class="text-xs text-gray-400 block mb-1 uppercase font-bold">Data Operazione</label>
+                        <input type="date" id="m-data" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white focus:border-blue-500 outline-none">
                     </div>
 
                     <div class="grid grid-cols-2 gap-4 mt-4">
@@ -272,37 +311,40 @@
         }
 
         async function salvaTransazioneModale() {
+            // Raccogliamo i dati dai campi della modale
             const titoloId = document.getElementById('titolo-selezionato-id').value;
-            const quantita = document.getElementById('m-quantita').value;
-            const prezzo = document.getElementById('m-prezzo').value;
+            const titoloJson = document.getElementById('titolo-selezionato-json').value;
 
-            // Recuperiamo i nuovi campi
-            const commissioni = document.getElementById('m-commissioni').value || 0;
-            const tasse = document.getElementById('m-tasse').value || 0;
-            const note = document.getElementById('m-note').value;
+            const transazioneDto = {
+                utenteId: UTENTE_ID,
 
-            if (!titoloId || !quantita || !prezzo) {
-                alert("Per favore, seleziona un titolo e inserisci quantità e prezzo.");
+                titoloId: null, // Sarà il backend a decidere se crearlo o usarne uno esistente
+
+                // Se il titolo è nuovo, inviamo l'oggetto completo da Alpha Vantage
+                titoloLookup: titoloJson ? JSON.parse(titoloJson) : null,
+
+                quantita: parseFloat(document.getElementById('m-quantita').value),
+                prezzoUnita: parseFloat(document.getElementById('m-prezzo').value),
+                commissioni: parseFloat(document.getElementById('m-commissioni').value || 0),
+                tasse: parseFloat(document.getElementById('m-tasse').value || 0),
+                note: document.getElementById('m-note').value,
+                dataOperazione: document.getElementById('m-data').value // Legge la data selezionata dall'utente
+            };
+
+            // Controllo validità base nel frontend
+            if (!transazioneDto.titoloLookup || isNaN(transazioneDto.quantita) || isNaN(transazioneDto.prezzoUnita)) {
+                alert("Compila tutti i campi obbligatori correttamente.");
                 return;
             }
 
-            const payload = {
-                quantita: parseFloat(quantita),
-                prezzoUnita: parseFloat(prezzo),
-                commissioni: parseFloat(commissioni),
-                tasse: parseFloat(tasse),
-                note: note,
-                data: new Date().toISOString()
-            };
-
             try {
-                const res = await fetch(`/api/portafoglio/transazione?utenteId=${UTENTE_ID}&titoloId=${titoloId}`, {
+                const response = await fetch('/api/portafoglio/transazione', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(transazioneDto)
                 });
 
-                if (res.ok)
+                if (response.ok)
                 {
                     // ... (logica successo rimane uguale) ...
                     chiudiModale();
@@ -313,7 +355,7 @@
                     // PROVA A LEGGERE IL JSON DEGLI ERRORI
                     try
                     {
-                        const errorData = await res.json();
+                        const errorData = await response.json();
                         console.log("Dettagli errore dal server:", errorData);
 
                         let messaggi = [];
@@ -438,6 +480,10 @@
         caricaPortafoglio();
 
         function apriModale() {
+            // Imposta la data di oggi come default
+            const oggi = new Date().toISOString().split('T')[0];
+            document.getElementById('m-data').value = oggi;
+
             document.getElementById('modal-transazione').classList.remove('hidden');
         }
 
@@ -448,48 +494,144 @@
             document.getElementById('lista-suggerimenti').classList.add('hidden');
         }
 
-        let timeoutRicerca;
+        let timerDebounce;
         async function eseguiRicerca(testo) {
             const lista = document.getElementById('lista-suggerimenti');
-            clearTimeout(timeoutRicerca);
+            clearTimeout(timerDebounce);
 
+            // 1. Pulizia immediata se il testo è corto
             if (testo.length < 2) {
                 lista.classList.add('hidden');
+                lista.innerHTML = '';
                 return;
             }
 
-            timeoutRicerca = setTimeout(async () => {
-                // NOTA: Usiamo 'query=' come confermato dal tuo test
-                const res = await fetch(`/api/titoli/cerca?query=${testo}`);
-                const titoli = await res.json();
+            // 2. Avviamo il timer per non sovraccaricare le API
+            timerDebounce = setTimeout(async () => {
 
-                if (titoli.length > 0) {
-                    lista.innerHTML = titoli.map(t => `
-                <div onclick="selezionaTitolo(${t.id}, '${t.simbolo}', '${t.nome}')" 
-                     class="flex items-center gap-3 p-3 hover:bg-gray-700 cursor-pointer border-b border-gray-700 last:border-0 transition">
-                    <div class="bg-blue-600/20 text-blue-400 w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold">
-                        ${t.simbolo.substring(0, 3)}
-                    </div>
-                    <div>
-                        <div class="text-sm font-bold text-white">${t.nome}</div>
-                        <div class="text-[10px] text-gray-500 uppercase">${t.simbolo} • ${t.valuta}</div>
-                    </div>
-                </div>
-            `).join('');
-                    lista.classList.remove('hidden');
-                } else {
-                    lista.innerHTML = '<div class="p-4 text-sm text-gray-500 text-center">Nessun titolo trovato</div>';
-                    lista.classList.remove('hidden');
+                // 3. Determiniamo se è un ISIN o una ricerca per nome INSIDE il timer
+                const isinRegex = /^[A-Z]{2}[A-Z0-9]{10}$/i;
+                const isIsin = isinRegex.test(testo.trim());
+
+                const url = isIsin
+                    ? `/api/titolo/cerca?q=${encodeURIComponent(testo.trim())}&tipo=isin`
+                    : `/api/titolo/cerca?q=${encodeURIComponent(testo.trim())}`;
+
+                try {
+                    const response = await fetch(url);
+                    const titoli = await response.json();
+
+                    if (titoli && titoli.length > 0) {
+                        lista.innerHTML = titoli.map(t => {
+                            // Logica Badge (Azione vs ETF)
+                            const tipoGrezzo = (t.tipo || '').toLowerCase();
+                            const isEtf = ['trust', 'etf', 'fund', 'mutual_fund'].includes(tipoGrezzo);
+                            const icona = isEtf ? '📊' : '🏢';
+                            const tipoLabel = isEtf ? 'ETF' : 'AZIONE';
+                            const badgeClass = isEtf
+                                ? 'bg-purple-900/40 text-purple-400 border-purple-700/50'
+                                : 'bg-blue-900/40 text-blue-400 border-blue-700/50';
+
+                            // Logica Mercato
+                            const mercatoStr = t.mercato || '';
+                            const isIta = mercatoStr.includes("MIL") || mercatoStr.includes("MI") || t.simbolo.endsWith(".MI");
+                            const bandiera = isIta ? '🇮🇹' : '🌍';
+                            const labelMercato = isIta ? 'MIL' : mercatoStr;
+
+                            // Codifica dati per la selezione
+                            const dataB64 = btoa(unescape(encodeURIComponent(JSON.stringify(t))));
+
+                            return `
+                    <div onclick="selezionaTitolo('${dataB64}')"
+                         class="flex items-center gap-3 p-3 hover:bg-gray-700/50 cursor-pointer border-b border-gray-800 last:border-0 transition group">
+                        <div class="bg-gray-800 w-10 h-10 rounded-lg flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                            ${icona}
+                        </div>
+                        <div class="flex-1 overflow-hidden">
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm font-bold text-white uppercase">${t.simbolo}</span>
+                                <span class="text-[9px] px-1.5 py-0.5 rounded border ${badgeClass} font-black uppercase tracking-wider">
+                                    ${tipoLabel}
+                                </span>
+                            </div>
+                            <div class="text-[11px] text-gray-400 truncate">${t.nome}</div>
+                        </div>
+                        <div class="text-right flex flex-col items-end gap-1">
+                            <div class="flex items-center gap-1 bg-gray-900/50 px-2 py-0.5 rounded-md border border-gray-700">
+                                <span class="text-[12px]">${bandiera}</span>
+                                <span class="text-[10px] font-bold text-gray-200">${labelMercato}</span>
+                            </div>
+                            <div class="text-[10px] text-gray-500 font-mono tracking-tighter">${t.valuta}</div>
+                        </div>
+                    </div>`;
+                        }).join('');
+                        lista.classList.remove('hidden');
+                    } else {
+                        lista.innerHTML = '<div class="p-4 text-sm text-gray-500 text-center italic">Nessun risultato trovato</div>';
+                        lista.classList.remove('hidden');
+                    }
+                } catch (error) {
+                    console.error("Errore lookup titoli:", error);
+                    lista.innerHTML = '<div class="p-4 text-sm text-red-400 text-center">Errore nella ricerca</div>';
                 }
-            }, 300);
+            }, 400);
         }
 
-        function selezionaTitolo(id, simbolo, nome) {
-            document.getElementById('titolo-selezionato-id').value = id;
-            document.getElementById('ricerca-titolo').value = `${nome} (${simbolo})`;
-            document.getElementById('lista-suggerimenti').classList.add('hidden');
+        async function selezionaTitolo(dataB64) {
+            // 1. Decodifica i dati
+            const titolo = JSON.parse(atob(dataB64));
+
+            // 2. Aggiorna l'input di ricerca e nascondi la lista
+            const inputRicerca = document.getElementById('ricerca-titolo');
+            inputRicerca.value = titolo.nome;
+
+            const lista = document.getElementById('lista-suggerimenti');
+            lista.classList.add('hidden');
+            lista.innerHTML = '';
+
+            // --- PARACADUTE ISIN ---
+            const inputIsin = document.getElementById('m-isin');
+            if (inputIsin) {
+                inputIsin.value = "Recupero in corso..."; // Feedback utente
+
+                try {
+                    // Chiamata al tuo endpoint C# che gestisce il recupero ISIN (e il potenziale 402)
+                    const response = await fetch(`/api/titolo/recupera-isin?simbolo=${titolo.simbolo}`);
+                    if (response.ok) {
+                        const isinRecuperato = await response.text();
+                        // Se il server risponde con una stringa valida la mettiamo, altrimenti puliamo
+                        inputIsin.value = isinRecuperato || "";
+                    } else {
+                        inputIsin.value = ""; // Fallito (402 o altro), lasciamo vuoto per inserimento manuale
+                    }
+                } catch (error) {
+                    console.error("Errore durante il recupero ISIN:", error);
+                    inputIsin.value = "";
+                }
+            }
+            // -----------------------
+
+            // 3. Salva i dati nei campi nascosti
+            document.getElementById('titolo-selezionato-json').value = JSON.stringify(titolo);
+            document.getElementById('titolo-selezionato-id').value = "";
+
+            // 4. Focus sulla Quantità
+            const inputQuantita = document.getElementById('m-quantita');
+            if (inputQuantita) {
+                inputQuantita.focus();
+            }
+
+            console.log("Titolo selezionato:", titolo);
         }
 
+        // Chiudi la tendina se clicchi fuori dall'input o dalla lista
+        document.addEventListener('click', (e) => {
+            const lista = document.getElementById('lista-suggerimenti');
+            const input = document.getElementById('ricerca-titolo');
+            if (e.target !== input && !lista.contains(e.target)) {
+                lista.classList.add('hidden');
+            }
+        });
     </script>
 
 </body>

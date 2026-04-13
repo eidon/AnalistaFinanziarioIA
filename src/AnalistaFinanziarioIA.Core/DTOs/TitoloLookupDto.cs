@@ -10,6 +10,9 @@ public class TitoloLookupDto
     public string Tipo { get; set; } = string.Empty; // Azione, ETF, ecc.
     public string Regione { get; set; } = string.Empty;
 
+    public string Isin { get; set; } = string.Empty;
+    public string Mercato { get; set; } = string.Empty;
+
     // Flag per far capire al frontend se il titolo è nuovo o già censito
     public bool GiaPresenteNelDb => Id.HasValue;
 }

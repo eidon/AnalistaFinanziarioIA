@@ -4,6 +4,13 @@ namespace AnalistaFinanziarioIA.Core.DTOs
 {
     public class TransazioneInputDto
     {
+        [Required]
+        public Guid UtenteId { get; set; }
+        
+        public int? TitoloId { get; set; } // Nullable: se è null, usiamo TitoloLookup
+
+        public TitoloLookupDto? TitoloLookup { get; set; } // I dati da Alpha Vantage
+
         [Range(0.00001, double.MaxValue, ErrorMessage = "La quantità deve essere maggiore di zero")]
         public decimal Quantita { get; set; }
 

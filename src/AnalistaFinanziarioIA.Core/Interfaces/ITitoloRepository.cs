@@ -12,4 +12,5 @@ public interface ITitoloRepository
     Task DeleteAsync(int id);
 
     Task<IEnumerable<Titolo>> CercaAsync(string query, int limit = 5);
+    Task<Titolo?> GetByIsinAsync(string isin);
 }

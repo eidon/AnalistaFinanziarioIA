@@ -25,7 +25,7 @@ public class TitoloRepository : ITitoloRepository
 
     public async Task<Titolo> AddAsync(Titolo titolo)
     {
-        _context.Titoli.Add(titolo);
+        await _context.Titoli.AddAsync(titolo);
         await _context.SaveChangesAsync();
         return titolo;
     }
@@ -58,6 +58,14 @@ public class TitoloRepository : ITitoloRepository
             .OrderBy(t => t.Nome) // Ordina alfabeticamente
             .Take(limit) // Non sovraccaricare la UI, i primi 5-10 bastano
             .ToListAsync();
+    }
+
+    public async Task<Titolo?> GetByIsinAsync(string isin)
+    {
+        if (string.IsNullOrWhiteSpace(isin)) return null;
+
+        return await _context.Titoli
+            .FirstOrDefaultAsync(t => t.Isin == isin);
     }
 
 }

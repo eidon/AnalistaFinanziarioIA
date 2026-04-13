@@ -1,20 +1,21 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using FluentValidation;
-using AnalistaFinanziarioIA.Core.Models;     // Dove sta 'Transazione'
+﻿using AnalistaFinanziarioIA.Core.DTOs;
 using AnalistaFinanziarioIA.Core.Interfaces; // Dove sta 'IPortafoglioRepository'
+using AnalistaFinanziarioIA.Core.Models;     // Dove sta 'Transazione'
 using AnalistaFinanziarioIA.Core.Services;   // Dove sta 'PortafoglioService'
-using AnalistaFinanziarioIA.Core.DTOs;
+using AnalistaFinanziarioIA.Infrastructure.Repositories;
+using FluentValidation;
+using Microsoft.AspNetCore.Mvc;
 
 
 namespace AnalistaFinanziarioIA.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-// 1. ABBIAMO AGGIUNTO PortafoglioService NEL COSTRUTTORE
 public class PortafoglioController(
     IPortafoglioRepository _repository,
+    ITitoloRepository _titoloRepository,
+    ITitoloService _titoloService,
     IValidator<TransazioneInputDto> _validator,
-    IConfiguration _configuration,
     PortafoglioService _portafoglioService) : ControllerBase
 {
 
@@ -31,16 +32,62 @@ public class PortafoglioController(
     }
 
     [HttpPost("transazione")]
-    public async Task<IActionResult> RegistraOperazione(
-        [FromQuery] Guid utenteId,
-        [FromQuery] int titoloId,
-        [FromBody] TransazioneInputDto dto)
+    public async Task<IActionResult> RegistraOperazione([FromBody] TransazioneInputDto dto)
     {
+        // 1. Validazione (FluentValidation)
         var validationResult = await _validator.ValidateAsync(dto);
         if (!validationResult.IsValid) return BadRequest(validationResult.Errors);
 
         try
         {
+            // 2. Determiniamo l'ID del titolo (esistente o nuovo)
+            int idTitoloEffettivo;
+
+            if (dto.TitoloId.HasValue && dto.TitoloId.Value > 0)
+            {
+                idTitoloEffettivo = dto.TitoloId.Value;
+            }
+            else if (dto.TitoloLookup != null)
+            {
+                // Il titolo non ha ID, viene da Alpha Vantage. 
+                // Verifichiamo se esiste già per simbolo (magari aggiunto da un altro utente)
+                var titoloEsistente = await _titoloRepository.GetBySimboloAsync(dto.TitoloLookup.Simbolo);
+
+                if (titoloEsistente != null)
+                {
+                    idTitoloEffettivo = titoloEsistente.Id;
+                }
+                else
+                {
+                    TipoTitolo categoria = _titoloService.MappaTipoTitolo(dto.TitoloLookup.Tipo);
+
+                    // Dobbiamo crearlo (Censimento)
+                    var nuovoTitolo = new Titolo
+                    {
+                        Simbolo = dto.TitoloLookup.Simbolo,
+                        Nome = dto.TitoloLookup.Nome,
+                        Isin = dto.TitoloLookup.Isin,
+                        Valuta = dto.TitoloLookup.Valuta ?? "EUR", // Uso EUR come fallback
+                        DataCreazione = DateTime.Now,
+                        DataUltimoPrezzo = DateTime.Now,
+                        Mercato = dto.TitoloLookup.Regione
+                    };
+
+                    nuovoTitolo.Categoria = dto.TitoloLookup.Tipo?.ToLower().Contains("etf") == true
+                        ? TipoTitolo.ETF
+                        : TipoTitolo.Azione;
+
+                    // AddAsync deve salvare e restituire l'ID generato
+                    await _titoloRepository.AddAsync(nuovoTitolo);
+                    idTitoloEffettivo = nuovoTitolo.Id;
+                }
+            }
+            else
+            {
+                return BadRequest(new { Errore = "Nessun titolo selezionato correttamente." });
+            }
+
+            // 3. Creiamo l'entità Transazione usando i dati del DTO
             var nuovaTransazione = new Transazione
             {
                 Quantita = dto.Quantita,
@@ -50,14 +97,17 @@ public class PortafoglioController(
                 Note = dto.Note,
                 Data = dto.Data ?? DateTime.UtcNow,
                 Tipo = TipoTransazione.Acquisto
+                // Nota: UtenteId e TitoloId vengono gestiti dal repository sotto
             };
 
-            var assetAggiornato = await _repository.AggiungiTransazioneAsync(nuovaTransazione, utenteId, titoloId);
+            // 4. Salvataggio finale
+            // Passiamo dto.UtenteId (che ora arriva nel Body) e idTitoloEffettivo (calcolato sopra)
+            var assetAggiornato = await _repository.AggiungiTransazioneAsync(nuovaTransazione, dto.UtenteId, idTitoloEffettivo);
 
             return Ok(new
             {
                 Messaggio = "Operazione registrata con successo",
-                TitoloId = titoloId,
+                TitoloId = idTitoloEffettivo,
                 NuovaQuantita = assetAggiornato.QuantitaTotale,
                 NuovoPrezzoMedio = assetAggiornato.PrezzoMedioCarico
             });

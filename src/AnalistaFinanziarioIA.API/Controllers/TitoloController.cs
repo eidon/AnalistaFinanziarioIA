@@ -1,4 +1,5 @@
-﻿using AnalistaFinanziarioIA.Core.Interfaces;
+﻿using AnalistaFinanziarioIA.Core.DTOs;
+using AnalistaFinanziarioIA.Core.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AnalistaFinanziarioIA.API.Controllers;
@@ -7,15 +8,32 @@ namespace AnalistaFinanziarioIA.API.Controllers;
 [Route("api/[controller]")]
 public class TitoloController(ITitoloService _titoloService) : ControllerBase
 {
+
     [HttpGet("cerca")]
-    public async Task<IActionResult> Cerca([FromQuery] string q)
+    public async Task<IActionResult> Cerca([FromQuery] string q, [FromQuery] string tipo = "nome")
     {
         if (string.IsNullOrWhiteSpace(q))
-            return Ok(new List<object>());
+            return Ok(new List<TitoloLookupDto>());
 
-        // Chiamiamo il servizio che interroga Alpha Vantage
-        var risultati = await _titoloService.CercaTitoliAsync(q);
+        try
+        {
+            // ORA interroghiamo finalmente il servizio con FMP!
+            if (tipo == "isin")
+            {
+                // Usiamo l'endpoint specifico per ISIN che abbiamo visto nella documentazione
+                var risultati = await _titoloService.CercaPerIsinAsync(q);
+                return Ok(risultati);
+            }
 
-        return Ok(risultati);
+            var baseRisultati = await _titoloService.CercaTitoliAsync(q);
+            return Ok(baseRisultati);
+        }
+        catch (Exception ex)
+        {
+            // Logga l'errore per debug
+            return StatusCode(500, $"Errore interno: {ex.Message}");
+        }
     }
+
+
 }
