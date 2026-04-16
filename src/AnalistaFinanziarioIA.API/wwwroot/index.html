@@ -311,32 +311,51 @@
         }
 
         async function salvaTransazioneModale() {
-            // Raccogliamo i dati dai campi della modale
+            // 1. Recuperiamo i dati dai campi
             const titoloId = document.getElementById('titolo-selezionato-id').value;
             const titoloJson = document.getElementById('titolo-selezionato-json').value;
 
+            // Parsing del JSON salvato da selezionaTitolo
+            const titoloLookup = titoloJson ? JSON.parse(titoloJson) : null;
+
+            // 2. Controllo di sicurezza: l'arricchimento è finito?
+            if (titoloLookup && (titoloLookup.settore === undefined || titoloLookup.settore === null)) {
+                // Se per qualche motivo il settore manca ancora, mostriamo un avviso o attendiamo
+                console.warn("Attenzione: i dati del titolo non sono ancora completi.");
+            }
+
             const transazioneDto = {
                 utenteId: UTENTE_ID,
-
-                titoloId: null, // Sarà il backend a decidere se crearlo o usarne uno esistente
-
-                // Se il titolo è nuovo, inviamo l'oggetto completo da Alpha Vantage
-                titoloLookup: titoloJson ? JSON.parse(titoloJson) : null,
+                titoloId: titoloId ? parseInt(titoloId) : null,
+                titoloLookup: titoloLookup,
 
                 quantita: parseFloat(document.getElementById('m-quantita').value),
-                prezzoUnita: parseFloat(document.getElementById('m-prezzo').value),
+                // ATTENZIONE: verifica se nel DTO C# si chiama PrezzoUnita o PrezzoUnitario
+                prezzoUnitario: parseFloat(document.getElementById('m-prezzo').value),
+
                 commissioni: parseFloat(document.getElementById('m-commissioni').value || 0),
                 tasse: parseFloat(document.getElementById('m-tasse').value || 0),
                 note: document.getElementById('m-note').value,
-                dataOperazione: document.getElementById('m-data').value // Legge la data selezionata dall'utente
+                dataOperazione: document.getElementById('m-data').value
             };
 
-            // Controllo validità base nel frontend
-            if (!transazioneDto.titoloLookup || isNaN(transazioneDto.quantita) || isNaN(transazioneDto.prezzoUnita)) {
-                alert("Compila tutti i campi obbligatori correttamente.");
+            // 3. Validazione lato client migliorata
+            if (!transazioneDto.titoloLookup && !transazioneDto.titoloId) {
+                alert("Seleziona prima un titolo.");
                 return;
             }
 
+            if (isNaN(transazioneDto.quantita) || transazioneDto.quantita <= 0) {
+                alert("Inserisci una quantità valida.");
+                return;
+            }
+
+            if (isNaN(transazioneDto.prezzoUnitario) || transazioneDto.prezzoUnitario < 0) {
+                alert("Inserisci un prezzo valido.");
+                return;
+            }
+
+            // 4. Invio al server
             try {
                 const response = await fetch('/api/portafoglio/transazione', {
                     method: 'POST',
@@ -344,62 +363,41 @@
                     body: JSON.stringify(transazioneDto)
                 });
 
-                if (response.ok)
-                {
-                    // ... (logica successo rimane uguale) ...
+                if (response.ok) {
                     chiudiModale();
-                    await caricaPortafoglio();
-                }
-                else
-                {
-                    // PROVA A LEGGERE IL JSON DEGLI ERRORI
-                    try
-                    {
-                        const errorData = await response.json();
-                        console.log("Dettagli errore dal server:", errorData);
-
-                        let messaggi = [];
-
-                        // CASO 1: Formato standard ASP.NET (quello del tuo screenshot)
-                        if (errorData.errors) {
-                            // Estraiamo tutti i messaggi da ogni campo (Quantita, Prezzo, ecc.)
-                            for (const campo in errorData.errors) {
-                                const erroriCampo = errorData.errors[campo];
-                                if (Array.isArray(erroriCampo)) {
-                                    messaggi.push(...erroriCampo);
-                                }
-                            }
-                        }
-                        // CASO 2: Array semplice di FluentValidation (se configurato diversamente)
-                        else if (Array.isArray(errorData)) {
-                            messaggi = errorData.map(e => e.errorMessage);
-                        }
-                        // CASO 3: Messaggio singolo
-                        else if (errorData.errore || errorData.title) {
-                            messaggi.push(errorData.errore || errorData.title);
-                        }
-
-                        if (messaggi.length > 0) {
-                            alert("Attenzione:\n" + messaggi.join("\n"));
-                        } else {
-                            alert("Errore imprevisto nel formato dati.");
-                        }
-
-                    } catch (e) {
-                        const textError = await res.text();
-                        alert("Errore del server: " + textError);
-                    }
+                    // Notifica di successo (magari con un toast o alert)
+                    if (typeof caricaPortafoglio === "function") await caricaPortafoglio();
+                } else {
+                    // Gestione errori (la tua logica esistente va benissimo)
+                    await gestisciErroreServer(response);
                 }
             } catch (error) {
-                console.error("Errore critico:", error);
+                console.error("Errore critico durante il salvataggio:", error);
+                alert("Si è verificato un errore di connessione.");
             }
         }
 
-        function mostraErroreModale(messaggio) {
-            const container = document.getElementById('modal-error-container');
-            container.textContent = messaggio;
-            container.classList.remove('hidden');
+        // Estraiamo la logica di errore per pulizia
+        async function gestisciErroreServer(response) {
+            try {
+                const errorData = await response.json();
+                let messaggi = [];
+
+                if (errorData.errors) {
+                    for (const campo in errorData.errors) {
+                        const erroriCampo = errorData.errors[campo];
+                        if (Array.isArray(erroriCampo)) messaggi.push(...erroriCampo);
+                    }
+                } else if (errorData.errore || errorData.title) {
+                    messaggi.push(errorData.errore || errorData.title);
+                }
+
+                alert("Attenzione:\n" + (messaggi.length > 0 ? messaggi.join("\n") : "Errore nel salvataggio."));
+            } catch (e) {
+                alert("Errore del server: " + response.statusText);
+            }
         }
+
 
         async function chiediAI() {
             const input = document.getElementById('chat-input');
@@ -578,50 +576,57 @@
         }
 
         async function selezionaTitolo(dataB64) {
-            // 1. Decodifica i dati
-            const titolo = JSON.parse(atob(dataB64));
+            // 1. Decodifica i dati base (quelli della lista suggerimenti)
+            const titoloBase = JSON.parse(atob(dataB64));
 
-            // 2. Aggiorna l'input di ricerca e nascondi la lista
+            // RECUPERO IL SIMBOLO DALL'OGGETTO APPENA DECODIFICATO
+            const simbolo = titoloBase.simbolo;
+
+            // 2. Aggiorna UI immediata
             const inputRicerca = document.getElementById('ricerca-titolo');
-            inputRicerca.value = titolo.nome;
+            inputRicerca.value = titoloBase.nome;
 
             const lista = document.getElementById('lista-suggerimenti');
             lista.classList.add('hidden');
             lista.innerHTML = '';
 
-            // --- PARACADUTE ISIN ---
             const inputIsin = document.getElementById('m-isin');
-            if (inputIsin) {
-                inputIsin.value = "Recupero in corso..."; // Feedback utente
+            if (inputIsin) inputIsin.value = "Recupero dettagli...";
 
-                try {
-                    // Chiamata al tuo endpoint C# che gestisce il recupero ISIN (e il potenziale 402)
-                    const response = await fetch(`/api/titolo/recupera-isin?simbolo=${titolo.simbolo}`);
-                    if (response.ok) {
-                        const isinRecuperato = await response.text();
-                        // Se il server risponde con una stringa valida la mettiamo, altrimenti puliamo
-                        inputIsin.value = isinRecuperato || "";
-                    } else {
-                        inputIsin.value = ""; // Fallito (402 o altro), lasciamo vuoto per inserimento manuale
-                    }
-                } catch (error) {
-                    console.error("Errore durante il recupero ISIN:", error);
-                    inputIsin.value = "";
+            try {
+                // 3. CHIAMATA AL NUOVO ENDPOINT (restituisce TitoloLookupDto completo)
+                const response = await fetch(`/api/titoli/dettaglio-completo/${simbolo}`);
+
+                if (response.ok) {
+                    const titoloArricchito = await response.json();
+
+                    // Mettiamo l'ISIN nel campo visibile della modale
+                    if (inputIsin) inputIsin.value = titoloArricchito.isin || "";
+
+                    // AGGIORNIAMO IL JSON NASCOSTO con i dati completi (Settore e Mercato inclusi!)
+                    // Questo è fondamentale perché è quello che verrà inviato al salvataggio
+                    document.getElementById('titolo-selezionato-json').value = JSON.stringify(titoloArricchito);
+
+                    console.log("Dati arricchiti ricevuti:", titoloArricchito);
+                } else {
+                    // Fallback: se l'arricchimento fallisce, usiamo i dati base della ricerca
+                    document.getElementById('titolo-selezionato-json').value = JSON.stringify(titoloBase);
+                    if (inputIsin) inputIsin.value = "";
                 }
+            } catch (error) {
+                console.error("Errore durante l'arricchimento titolo:", error);
+                document.getElementById('titolo-selezionato-json').value = JSON.stringify(titoloBase);
+                if (inputIsin) inputIsin.value = "";
             }
-            // -----------------------
 
-            // 3. Salva i dati nei campi nascosti
-            document.getElementById('titolo-selezionato-json').value = JSON.stringify(titolo);
+            // 4. Reset ID (perché è un nuovo titolo da creare o cercare per simbolo)
             document.getElementById('titolo-selezionato-id').value = "";
 
-            // 4. Focus sulla Quantità
+            // 5. Focus sulla Quantità
             const inputQuantita = document.getElementById('m-quantita');
             if (inputQuantita) {
                 inputQuantita.focus();
             }
-
-            console.log("Titolo selezionato:", titolo);
         }
 
         // Chiudi la tendina se clicchi fuori dall'input o dalla lista

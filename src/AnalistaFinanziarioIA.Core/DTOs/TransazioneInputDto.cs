@@ -15,7 +15,7 @@ namespace AnalistaFinanziarioIA.Core.DTOs
         public decimal Quantita { get; set; }
 
         [Range(0.01, double.MaxValue, ErrorMessage = "Il prezzo deve essere maggiore di zero")]
-        public decimal PrezzoUnita { get; set; }
+        public decimal PrezzoUnitario { get; set; }
 
         public decimal Commissioni { get; set; }
 

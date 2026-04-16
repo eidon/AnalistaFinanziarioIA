@@ -7,6 +7,8 @@ public interface ITitoloService
 {
     Task<List<TitoloLookupDto>> CercaTitoliAsync(string query);
     Task<List<TitoloLookupDto>> CercaPerIsinAsync(string isin);
-    Task<string?> RecuperaIsinAsync(string simbolo);
-    TipoTitolo MappaTipoTitolo(string? fmpType);
+
+    Task<TitoloLookupDto?> RecuperaDettagliCompletiAsync(string simbolo);
+
+    TipoTitolo MappaTipoTitolo(string? fmpType, string simbolo);
 }

@@ -36,7 +36,7 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context) : IPor
         // 3. Logica Finanziaria (Corretta con Tasse e Commissioni)
         if (transazione.Tipo == TipoTransazione.Acquisto)
         {
-            decimal costoEffettivoNuovo = (transazione.Quantita * transazione.PrezzoUnita)
+            decimal costoEffettivoNuovo = (transazione.Quantita * transazione.PrezzoUnitario)
                                           + transazione.Commissioni
                                           + transazione.Tasse;
 
@@ -109,7 +109,7 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context) : IPor
 
         if (!acquisti.Any()) return 0;
 
-        decimal spesaTotale = acquisti.Sum(t => t.Quantita * t.PrezzoUnita);
+        decimal spesaTotale = acquisti.Sum(t => t.Quantita * t.PrezzoUnitario);
         decimal quantitaTotale = acquisti.Sum(t => t.Quantita);
 
         if (quantitaTotale == 0) return 0;
@@ -172,7 +172,7 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context) : IPor
 
         // 2. Aggiorniamo i dati della transazione
         t.Quantita = input.Quantita;
-        t.PrezzoUnita = input.PrezzoUnita;
+        t.PrezzoUnitario = input.PrezzoUnitario;
         t.Commissioni = input.Commissioni;
         t.Tasse = input.Tasse;
         t.Note = input.Note;
@@ -227,7 +227,7 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context) : IPor
             decimal pmc = 0;
             if (acquisti.Any())
             {
-                decimal spesaTotale = acquisti.Sum(t => t.Quantita * t.PrezzoUnita);
+                decimal spesaTotale = acquisti.Sum(t => t.Quantita * t.PrezzoUnitario);
                 decimal quantitaAcquistata = acquisti.Sum(t => t.Quantita);
                 pmc = quantitaAcquistata > 0 ? spesaTotale / quantitaAcquistata : 0;
             }
@@ -254,5 +254,78 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context) : IPor
         return result;
     }
 
+    public async Task<bool> RegistraOperazioneCompletaAsync(RegistraTransazioneDto dto)
+    {
+        // Usiamo una transazione SQL per garantire che se la creazione della 
+        // transazione fallisce, non rimanga il titolo "orfano" o l'asset vuoto.
+        using var dbTransaction = await _context.Database.BeginTransactionAsync();
 
+        try
+        {
+            Titolo? titolo = null;
+
+            // 1. GESTIONE TITOLO
+            if (dto.TitoloId.HasValue && dto.TitoloId > 0)
+            {
+                titolo = await _context.Titoli.FindAsync(dto.TitoloId);
+            }
+            else if (dto.TitoloLookup != null)
+            {
+                // Verifichiamo se per caso il titolo esiste già per simbolo (es. LDO.MI)
+                titolo = await GetTitoloBySimboloAsync(dto.TitoloLookup.Simbolo);
+
+                if (titolo == null)
+                {
+                    // Creazione JIT (Just In Time) dell'anagrafica
+                    titolo = new Titolo
+                    {
+                        Simbolo = dto.TitoloLookup.Simbolo.ToUpper(),
+                        Nome = dto.TitoloLookup.Nome,
+                        Isin = dto.TitoloLookup.Isin,
+                        Settore = dto.TitoloLookup.Settore,
+                        Mercato = dto.TitoloLookup.Mercato,
+                        Valuta = dto.TitoloLookup.Valuta,
+                        Tipo = Enum.Parse<TipoTitolo>(dto.TitoloLookup.Tipo),
+                        UltimoPrezzo = dto.TitoloLookup.PrezzoAttuale, // <--- Salviamo il prezzo fresco di FMP
+                        DataUltimoPrezzo = DateTime.Now,
+                        DataCreazione = DateTime.Now
+                    };
+                    _context.Titoli.Add(titolo);
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            if (titolo == null) throw new Exception("Impossibile identificare o creare il titolo.");
+
+            // 2. PREPARAZIONE TRANSAZIONE (Modello Core)
+            var nuovaTransazione = new Transazione
+            {
+                // Mappiamo la stringa "Acquisto"/"Vendita" nell'Enum
+                Tipo = Enum.TryParse<TipoTransazione>(dto.TipoOperazione, true, out var t) ? t : TipoTransazione.Acquisto,
+                Quantita = dto.Quantita,
+                PrezzoUnitario = dto.PrezzoUnita,
+                Commissioni = dto.Commissioni,
+                Tasse = dto.Tasse,
+                Data = dto.DataOperazione,
+                Note = dto.Note ?? "Inserito da dashboard",
+                TassoCambio = 1.0m // Iniziale, potresti espanderlo in futuro
+            };
+
+            // 3. LOGICA ASSET & PMC (Chiamata al tuo metodo esistente)
+            // Questo metodo si occupa di:
+            // - Cercare/Creare l'AssetPortafoglio (User <-> Titolo)
+            // - Calcolare il nuovo PMC
+            // - Scalare/Aumentare la QuantitàTotale
+            await AggiungiTransazioneAsync(nuovaTransazione, dto.UtenteId, titolo.Id);
+
+            await dbTransaction.CommitAsync();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            await dbTransaction.RollbackAsync();
+            // Logga l'errore se hai un logger, altrimenti lo rilanciamo per il controller
+            throw new Exception($"Errore durante la registrazione: {ex.Message}");
+        }
+    }
 }

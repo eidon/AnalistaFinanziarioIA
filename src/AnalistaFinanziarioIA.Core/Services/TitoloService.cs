@@ -33,21 +33,62 @@ namespace AnalistaFinanziarioIA.Core.Services
 
                 if (risultati == null) return new List<TitoloLookupDto>();
 
-                return risultati.Select(t => new TitoloLookupDto
+                var convert =  risultati.Select(t => new TitoloLookupDto
                 {
                     Simbolo = t.Symbol,
                     Nome = t.Name,
                     Valuta = t.Currency ?? "EUR",
                     Mercato = t.ExchangeShortName ?? t.StockExchange,
                     // Convertiamo il tipo di FMP nel tuo Enum TipoTitolo (come stringa per il DTO)
-                    Tipo = MappaTipoTitolo(t.Type).ToString()
+                    Tipo = MappaTipoTitolo(t.Type, t.Symbol).ToString()
                 }).ToList();
+
+
+                return convert;
             }
             catch (Exception ex)
             {
                 // Logga l'errore se necessario
                 return new List<TitoloLookupDto>();
             }
+        }
+
+        public async Task<TitoloLookupDto?> RecuperaDettagliCompletiAsync(string simbolo)
+        {
+            var urlProfile = $"https://financialmodelingprep.com/stable/profile?symbol={simbolo}&apikey={apiKey}";
+
+            try
+            {
+                ConfiguraUserAgent();
+                var response = await _httpClient.GetAsync(urlProfile);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var profili = await response.Content.ReadFromJsonAsync<List<FmpFullProfile>>();
+                    var p = profili?.FirstOrDefault();
+
+                    if (p == null) return null;
+
+                    return new TitoloLookupDto
+                    {
+                        Simbolo = p.Symbol ?? simbolo,
+                        Nome = p.CompanyName ?? "N/A",
+                        Isin = p.Isin,
+                        Valuta = p.Currency ?? "EUR",
+                        Mercato = p.ExchangeShortName ?? p.Exchange ?? "N/A",
+                        // Uniamo Settore e Industria per avere dati precisi come nel tuo DB (es. "Industrials - Aerospace & Defense")
+                        Settore = string.IsNullOrEmpty(p.Industry) ? p.Sector : $"{p.Sector} - {p.Industry}",
+                        Tipo = MappaTipoTitolo(p.Type, p.Symbol).ToString(),
+                        PrezzoAttuale = p.Price
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[FMP] Errore recupero profilo completo: {ex.Message}");
+            }
+
+            return null;
         }
 
         public async Task<List<TitoloLookupDto>> CercaPerIsinAsync(string isin)
@@ -97,7 +138,7 @@ namespace AnalistaFinanziarioIA.Core.Services
                         Isin = res.Isin,
                         Valuta = p?.Currency ?? "EUR",
                         Mercato = p?.ExchangeShortName ?? p?.Exchange ?? "N/A",
-                        Tipo = MappaTipoTitolo(p?.Type).ToString()
+                        Tipo = MappaTipoTitolo(p?.Type, res.Symbol).ToString()
                     });
 
                 }
@@ -107,18 +148,19 @@ namespace AnalistaFinanziarioIA.Core.Services
             catch { return new List<TitoloLookupDto>(); }
         }
 
-        public TipoTitolo MappaTipoTitolo(string? fmpType)
+        public TipoTitolo MappaTipoTitolo(string? fmpType, string simbolo)
         {
-            if (string.IsNullOrEmpty(fmpType)) return TipoTitolo.Azione;
+            if (string.IsNullOrEmpty(fmpType))
+            {
+                // Se FMP non ci dà il tipo, proviamo a indovinare dal simbolo
+                if (simbolo.Contains(".MI") || simbolo.Length <= 5) return TipoTitolo.Azione;
+                return TipoTitolo.Azione; // Default
+            }
 
             return fmpType.ToLower() switch
             {
                 "stock" => TipoTitolo.Azione,
-                "trust" => TipoTitolo.ETF,
-                "etf" => TipoTitolo.ETF,
-                "fund" => TipoTitolo.ETF,
-                "mutual_fund" => TipoTitolo.ETF,
-                // Se in futuro aggiungerai le crypto su FMP:
+                "trust" or "etf" or "fund" or "mutual_fund" => TipoTitolo.ETF,
                 "cryptocurrency" => TipoTitolo.Crypto,
                 _ => TipoTitolo.Azione
             };
@@ -132,46 +174,20 @@ namespace AnalistaFinanziarioIA.Core.Services
             }
         }
 
-        public async Task<string?> RecuperaIsinAsync(string simbolo)
-        {
-            // Usiamo 'stable' e la tua variabile 'apiKey'
-            var urlProfile = $"https://financialmodelingprep.com/stable/profile?symbol={simbolo}&apikey={apiKey}";
-
-            try
-            {
-                ConfiguraUserAgent();
-                var response = await _httpClient.GetAsync(urlProfile);
-
-                // Gestione paracadute per errore 402 (Piano Free)
-                if (response.StatusCode == System.Net.HttpStatusCode.PaymentRequired)
-                {
-                    Console.WriteLine($"[FMP] ISIN non disponibile per {simbolo} (Piano Free).");
-                    return null;
-                }
-
-                if (response.IsSuccessStatusCode)
-                {
-                    // USIAMO LA TUA NUOVA CLASSE FmpFullProfile
-                    var profile = await response.Content.ReadFromJsonAsync<List<FmpFullProfile>>();
-                    return profile?.FirstOrDefault()?.Isin;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[FMP] Errore durante il recupero ISIN: {ex.Message}");
-            }
-
-            return null;
-        }
 
         // Classi di supporto per il Profile
         public class FmpFullProfile
         {
+            [JsonPropertyName("symbol")] public string? Symbol { get; set; }
+            [JsonPropertyName("companyName")] public string? CompanyName { get; set; }
             [JsonPropertyName("isin")] public string? Isin { get; set; }
             [JsonPropertyName("currency")] public string? Currency { get; set; }
             [JsonPropertyName("exchangeShortName")] public string? ExchangeShortName { get; set; }
             [JsonPropertyName("exchange")] public string? Exchange { get; set; }
             [JsonPropertyName("type")] public string? Type { get; set; }
+            [JsonPropertyName("sector")] public string? Sector { get; set; } // <--- AGGIUNTO
+            [JsonPropertyName("industry")] public string? Industry { get; set; } // <--- AGGIUNTO
+            [JsonPropertyName("price")] public decimal Price { get; set; } // <--- AGGIUNTO
         }
 
         // Classe di supporto per il mapping della risposta FMP

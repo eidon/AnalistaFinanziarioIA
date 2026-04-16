@@ -176,9 +176,6 @@ namespace AnalistaFinanziarioIA.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("Categoria")
-                        .HasColumnType("int");
-
                     b.Property<DateTime>("DataCreazione")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -207,6 +204,9 @@ namespace AnalistaFinanziarioIA.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("Tipo")
+                        .HasColumnType("int");
 
                     b.Property<decimal>("UltimoPrezzo")
                         .HasPrecision(18, 4)
@@ -246,7 +246,7 @@ namespace AnalistaFinanziarioIA.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<decimal>("PrezzoUnita")
+                    b.Property<decimal>("PrezzoUnitario")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
 

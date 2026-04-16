@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AnalistaFinanziarioIA.Infrastructure.Migrations
 {
     [DbContext(typeof(AnalistaFinanziarioDbContext))]
-    [Migration("20260406151839_AggiuntoIsinEValutaATitoli")]
-    partial class AggiuntoIsinEValutaATitoli
+    [Migration("20260415175540_RenamePrezzoUnitaToPrezzoUnitario")]
+    partial class RenamePrezzoUnitaToPrezzoUnitario
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -184,6 +184,9 @@ namespace AnalistaFinanziarioIA.Infrastructure.Migrations
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("GETDATE()");
 
+                    b.Property<DateTime>("DataUltimoPrezzo")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Isin")
                         .HasColumnType("nvarchar(max)");
 
@@ -204,6 +207,13 @@ namespace AnalistaFinanziarioIA.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("Tipo")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("UltimoPrezzo")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<string>("Valuta")
                         .IsRequired()
@@ -235,11 +245,19 @@ namespace AnalistaFinanziarioIA.Infrastructure.Migrations
                     b.Property<DateTime>("Data")
                         .HasColumnType("datetime2");
 
-                    b.Property<decimal>("PrezzoUnita")
+                    b.Property<string>("Note")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("PrezzoUnitario")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
 
                     b.Property<decimal>("Quantita")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("Tasse")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
 
@@ -326,11 +344,13 @@ namespace AnalistaFinanziarioIA.Infrastructure.Migrations
 
             modelBuilder.Entity("AnalistaFinanziarioIA.Core.Models.Transazione", b =>
                 {
-                    b.HasOne("AnalistaFinanziarioIA.Core.Models.AssetPortafoglio", null)
+                    b.HasOne("AnalistaFinanziarioIA.Core.Models.AssetPortafoglio", "AssetPortafoglio")
                         .WithMany("Transazioni")
                         .HasForeignKey("AssetPortafoglioId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("AssetPortafoglio");
                 });
 
             modelBuilder.Entity("AnalistaFinanziarioIA.Core.Models.AssetPortafoglio", b =>

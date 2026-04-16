@@ -59,8 +59,6 @@ public class PortafoglioController(
                 }
                 else
                 {
-                    TipoTitolo categoria = _titoloService.MappaTipoTitolo(dto.TitoloLookup.Tipo);
-
                     // Dobbiamo crearlo (Censimento)
                     var nuovoTitolo = new Titolo
                     {
@@ -70,12 +68,12 @@ public class PortafoglioController(
                         Valuta = dto.TitoloLookup.Valuta ?? "EUR", // Uso EUR come fallback
                         DataCreazione = DateTime.Now,
                         DataUltimoPrezzo = DateTime.Now,
-                        Mercato = dto.TitoloLookup.Regione
+                        Mercato = dto.TitoloLookup.Mercato,
+                        Settore = dto.TitoloLookup.Settore ?? "Altro",
+                        UltimoPrezzo = dto.PrezzoUnitario
                     };
 
-                    nuovoTitolo.Categoria = dto.TitoloLookup.Tipo?.ToLower().Contains("etf") == true
-                        ? TipoTitolo.ETF
-                        : TipoTitolo.Azione;
+                    nuovoTitolo.Tipo = _titoloService.MappaTipoTitolo(dto.TitoloLookup.Tipo?.ToLower(), dto.TitoloLookup.Simbolo);
 
                     // AddAsync deve salvare e restituire l'ID generato
                     await _titoloRepository.AddAsync(nuovoTitolo);
@@ -91,12 +89,12 @@ public class PortafoglioController(
             var nuovaTransazione = new Transazione
             {
                 Quantita = dto.Quantita,
-                PrezzoUnita = dto.PrezzoUnita,
+                PrezzoUnitario = dto.PrezzoUnitario,
                 Commissioni = dto.Commissioni,
                 Tasse = dto.Tasse,
                 Note = dto.Note,
                 Data = dto.Data ?? DateTime.UtcNow,
-                Tipo = TipoTransazione.Acquisto
+                Tipo = TipoTransazione.Acquisto                
                 // Nota: UtenteId e TitoloId vengono gestiti dal repository sotto
             };
 
@@ -136,8 +134,8 @@ public class PortafoglioController(
                     TitoloNome = t.AssetPortafoglio?.Titolo?.Nome ?? "N/A",
                     Ticker = t.AssetPortafoglio?.Titolo?.Simbolo ?? "",
                     Tipo = t.Tipo.ToString(),
-                    Descrizione = $"{(t.Tipo == TipoTransazione.Acquisto ? "Acquistato" : "Venduto")} x{t.Quantita:N0} a {t.PrezzoUnita:N2} {t.AssetPortafoglio?.Titolo?.Valuta}",
-                    TotaleOperazione = t.Quantita * t.PrezzoUnita,
+                    Descrizione = $"{(t.Tipo == TipoTransazione.Acquisto ? "Acquistato" : "Venduto")} x{t.Quantita:N0} a {t.PrezzoUnitario:N2} {t.AssetPortafoglio?.Titolo?.Valuta}",
+                    TotaleOperazione = t.Quantita * t.PrezzoUnitario,
                     Valuta = t.AssetPortafoglio?.Titolo?.Valuta ?? "EUR",
                     Icona = t.Tipo == TipoTransazione.Acquisto ? "in" : "out"
                 }).ToList()

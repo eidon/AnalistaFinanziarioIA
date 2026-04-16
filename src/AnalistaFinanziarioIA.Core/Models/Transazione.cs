@@ -8,7 +8,7 @@
         public int AssetPortafoglioId { get; set; }
         public TipoTransazione Tipo { get; set; }
         public decimal Quantita { get; set; }
-        public decimal PrezzoUnita { get; set; } // In valuta originale
+        public decimal PrezzoUnitario { get; set; } // In valuta originale
         public decimal Commissioni { get; set; }
         public decimal Tasse { get; set; } 
         public string Note { get; set; } = string.Empty;

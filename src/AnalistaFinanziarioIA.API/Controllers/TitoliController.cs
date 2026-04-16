@@ -1,6 +1,7 @@
 using AnalistaFinanziarioIA.Core.DTOs;
 using AnalistaFinanziarioIA.Core.Interfaces;
 using AnalistaFinanziarioIA.Core.Models;
+using AnalistaFinanziarioIA.Core.Services;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,11 +13,13 @@ public class TitoliController : ControllerBase
 {
     private readonly ITitoloRepository _repository;
     private readonly IValidator<TitoloCreateDto> _validator; // Iniettiamo il validatore
+    private readonly ITitoloService _titoloService;
 
-    public TitoliController(ITitoloRepository repository, IValidator<TitoloCreateDto> validator)
+    public TitoliController(ITitoloRepository repository, IValidator<TitoloCreateDto> validator, ITitoloService titoloService)
     {
         _repository = repository;
         _validator = validator;
+        _titoloService = titoloService;
     }
 
     [HttpGet]
@@ -61,7 +64,8 @@ public class TitoliController : ControllerBase
             Isin = dto.Isin?.ToUpperInvariant().Trim() ?? string.Empty,
             Valuta = dto.Valuta?.ToUpperInvariant() ?? "EUR",
             Mercato = dto.Mercato,
-            Settore = dto.Settore
+            Settore = dto.Settore,
+            
         };
 
         // 2. Passiamo al repository l'entità pulita
@@ -88,6 +92,14 @@ public class TitoliController : ControllerBase
         return NoContent();
     }
 
+    [HttpGet("dettaglio-completo/{simbolo}")]
+    public async Task<IActionResult> GetDettaglioCompleto(string simbolo)
+    {
+        var risultato = await _titoloService.RecuperaDettagliCompletiAsync(simbolo);
+        if (risultato == null) return NotFound();
+        return Ok(risultato);
+    }
+
     [HttpGet("cerca")]
     public async Task<IActionResult> Cerca([FromQuery] string query)
     {
@@ -101,7 +113,7 @@ public class TitoliController : ControllerBase
             t.Id,
             t.Simbolo,
             t.Nome,
-            t.Categoria, // es. "Azione", "ETF"
+            t.Tipo, // es. "Azione", "ETF"
             t.Valuta
         }));
     }

@@ -12,7 +12,7 @@ public class Titolo
     public string? Mercato { get; set; }                // Es: Borsa Italiana, XETRA
     public string Valuta { get; set; } = "EUR";         // Fondamentale per i calcoli!
     public DateTime DataCreazione { get; set; } = DateTime.Now;
-    public TipoTitolo Categoria { get; set; }
+    public TipoTitolo Tipo { get; set; }
 
     public decimal UltimoPrezzo { get; set; }
     public DateTime DataUltimoPrezzo { get; set; } = DateTime.Now;

@@ -10,7 +10,7 @@ public class TransazioneInputValidator : AbstractValidator<TransazioneInputDto>
         RuleFor(x => x.Quantita)
             .GreaterThan(0).WithMessage("La quantità deve essere maggiore di zero.");
 
-        RuleFor(x => x.PrezzoUnita)
+        RuleFor(x => x.PrezzoUnitario)
             .GreaterThan(0).WithMessage("Il prezzo per unità deve essere positivo.");
 
         RuleFor(x => x.Commissioni)

@@ -15,5 +15,7 @@ namespace AnalistaFinanziarioIA.Core.Interfaces
         Task<bool> AggiornaTransazioneAsync(int id, Transazione input);
         Task<IEnumerable<Transazione>> GetStoriaFiltrataAsync(Guid utenteId, string? searchTerm);
         Task<List<AssetDisplayDto>> GetDashboardAssetsAsync(Guid utenteId);
+
+        Task<bool> RegistraOperazioneCompletaAsync(RegistraTransazioneDto dto);
     }
 }
