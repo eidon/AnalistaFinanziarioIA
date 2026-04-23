@@ -1,15 +1,16 @@
 ﻿using AnalistaFinanziarioIA.Core.DTOs;
 using AnalistaFinanziarioIA.Core.Interfaces;
 using AnalistaFinanziarioIA.Core.Models;
+using AnalistaFinanziarioIA.Core.Services;
 using AnalistaFinanziarioIA.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace AnalistaFinanziarioIA.Infrastructure.Repositories;
 
-public class PortafoglioRepository(AnalistaFinanziarioDbContext _context) : IPortafoglioRepository
+public class PortafoglioRepository(AnalistaFinanziarioDbContext _context, IValutaService _valutaService) : IPortafoglioRepository
 {
 
-    public async Task<AssetPortafoglio> AggiungiTransazioneAsync(Transazione transazione, Guid utenteId, int titoloId)
+    public async Task<AssetPortafoglio?> AggiungiTransazioneAsync(Transazione transazione, Guid utenteId, int titoloId)
     {
         // 1. Verifica esistenza titolo
         var titolo = await _context.Titoli.FindAsync(titoloId)
@@ -19,21 +20,25 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context) : IPor
         var asset = await _context.AssetsPortafoglio
             .FirstOrDefaultAsync(a => a.UtenteId == utenteId && a.TitoloId == titoloId);
 
+        // Se è una vendita e l'asset non esiste, errore immediato
+        if (transazione.Tipo == TipoTransazione.Vendita && asset == null)
+            throw new Exception("Impossibile vendere un titolo che non è in portafoglio.");
+
         if (asset == null)
         {
-            // Se l'asset non esiste, lo creiamo
             asset = new AssetPortafoglio
             {
                 UtenteId = utenteId,
                 TitoloId = titoloId,
                 Transazioni = new List<Transazione>(),
                 QuantitaTotale = 0,
-                PrezzoMedioCarico = 0
+                PrezzoMedioCarico = 0,
+                ProfittoRealizzatoTotale = 0 // Inizializziamo il contatore dei profitti "chiusi"
             };
             _context.AssetsPortafoglio.Add(asset);
         }
 
-        // 3. Logica Finanziaria (Corretta con Tasse e Commissioni)
+        // 3. Logica Finanziaria
         if (transazione.Tipo == TipoTransazione.Acquisto)
         {
             decimal costoEffettivoNuovo = (transazione.Quantita * transazione.PrezzoUnitario)
@@ -50,17 +55,36 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context) : IPor
             if (asset.QuantitaTotale < transazione.Quantita)
                 throw new Exception("Quantità insufficiente per la vendita.");
 
+            // --- CALCOLO PROFITTO REALIZZATO (FISSAZIONE DEL PREZZO) ---
+            // Ricavo netto vendita (Prezzo * Quantità - costi)
+            decimal ricavoNettoVendita = (transazione.Quantita * transazione.PrezzoUnitario)
+                                         - transazione.Commissioni
+                                         - transazione.Tasse;
+
+            // Costo storico della porzione venduta (PMC * Quantità)
+            decimal costoStoricoVendita = asset.PrezzoMedioCarico * transazione.Quantita;
+
+            // Il profitto realizzato che "esce" dal portafoglio e diventa cash
+            decimal profittoDellaVendita = ricavoNettoVendita - costoStoricoVendita;
+
+            // Accumuliamo nel totale realizzato dell'asset
+            asset.ProfittoRealizzatoTotale += profittoDellaVendita;
+
+            // Scaliamo la quantità
             asset.QuantitaTotale -= transazione.Quantita;
-            // Il PMC non cambia durante una vendita
         }
 
-        // 4. Il "trucco" per il salvataggio senza ID diretti:
-        // Aggiungendo la transazione alla lista 'Transazioni' dell'asset, 
-        // Entity Framework imposterà automaticamente la Foreign Key (AssetPortafoglioId) 
-        // sulla transazione durante il SaveChangesAsync().
+        // 4. Gestione Transazione
         if (asset.Transazioni == null) asset.Transazioni = new List<Transazione>();
-
         asset.Transazioni.Add(transazione);
+
+        // --- 5. LOGICA DI CHIUSURA POSIZIONE (Senza eliminazione) ---
+        // Se la quantità è zero, l'asset non è più attivo.
+        if (asset.QuantitaTotale <= 0)
+        {
+            asset.QuantitaTotale = 0; // Per sicurezza, se fosse negativa
+            asset.PrezzoMedioCarico = 0; // Se non hai più azioni, il prezzo medio non ha più senso
+        }
 
         await _context.SaveChangesAsync();
         return asset;
@@ -151,6 +175,14 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context) : IPor
         return true;
     }
 
+    public async Task<Transazione?> GetTransazioneByIdAsync(int id)
+    {
+        return await _context.Transazioni
+            .Include(t => t.AssetPortafoglio)
+                .ThenInclude(a => a!.Titolo)
+            .FirstOrDefaultAsync(t => t.Id == id);
+    }
+
     public async Task<bool> AggiornaTransazioneAsync(int id, Transazione input)
     {
         var t = await _context.Transazioni.FindAsync(id);
@@ -212,7 +244,7 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context) : IPor
         var assets = await _context.AssetsPortafoglio
             .Include(a => a.Titolo)
             .Include(a => a.Transazioni)
-            .Where(a => a.UtenteId == utenteId && a.QuantitaTotale > 0)
+            .Where(a => a.UtenteId == utenteId) // && a.QuantitaTotale > 0)
             .ToListAsync();
 
         var result = new List<AssetDisplayDto>();
@@ -232,22 +264,28 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context) : IPor
                 pmc = quantitaAcquistata > 0 ? spesaTotale / quantitaAcquistata : 0;
             }
 
-            // 3. Recupero del prezzo attuale direttamente dal Titolo (aggiornato da API/IA)
-            decimal prezzoAttuale = (asset.Titolo?.UltimoPrezzo > 0)
-                ? asset.Titolo.UltimoPrezzo
-                : pmc; // Fallback sul PMC se il prezzo di mercato non è ancora disponibile
+            // --- MODIFICA QUI: GESTIONE VALUTA ---
 
-            // 4. Mappatura nel DTO
-            // ValoreDiMercato e GuadagnoAssoluto si calcoleranno da soli grazie alle prop "=>"
+            // 3. Recupero del prezzo attuale dal Titolo (es. 46.03 USD)
+            decimal prezzoGrezzo = (asset.Titolo?.UltimoPrezzo > 0)
+                ? asset.Titolo.UltimoPrezzo
+                : pmc;
+
+            // 4. CONVERSIONE IN EURO
+            // Se il titolo è USD, ConvertiInEur applicherà il tasso di cambio. Se è già EUR, restituirà il prezzo invariato.
+            decimal prezzoInEuro = _valutaService.ConvertiInEur(prezzoGrezzo, asset.Titolo?.Valuta ?? "EUR");
+
+            // 5. Mappatura nel DTO
             result.Add(new AssetDisplayDto
             {
                 AssetId = asset.Id,
                 TitoloNome = asset.Titolo?.Nome ?? "N/A",
                 Ticker = asset.Titolo?.Simbolo ?? "N/A",
                 Quantita = asset.QuantitaTotale,
-                Pmc = pmc,
-                PrezzoAttuale = prezzoAttuale,
-                Valuta = asset.Titolo?.Valuta ?? "EUR"
+                Pmc = pmc,                // Il PMC è già salvato in EUR durante l'acquisto
+                PrezzoAttuale = prezzoInEuro, // <--- ORA È SEMPRE IN EUR
+                Valuta = "EUR",           // Segnaliamo che il DTO ora parla solo in Euro
+                ProfittoRealizzatoTotale = asset.ProfittoRealizzatoTotale
             });
         }
 
@@ -298,15 +336,18 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context) : IPor
             if (titolo == null) throw new Exception("Impossibile identificare o creare il titolo.");
 
             // 2. PREPARAZIONE TRANSAZIONE (Modello Core)
+            var tipoInviato = Enum.TryParse<TipoTransazione>(dto.TipoOperazione, true, out var tipo)
+                  ? tipo
+                  : TipoTransazione.Acquisto;
+
             var nuovaTransazione = new Transazione
             {
-                // Mappiamo la stringa "Acquisto"/"Vendita" nell'Enum
-                Tipo = Enum.TryParse<TipoTransazione>(dto.TipoOperazione, true, out var t) ? t : TipoTransazione.Acquisto,
+                Tipo = tipoInviato,
                 Quantita = dto.Quantita,
-                PrezzoUnitario = dto.PrezzoUnita,
+                PrezzoUnitario = dto.PrezzoUnitario,
                 Commissioni = dto.Commissioni,
                 Tasse = dto.Tasse,
-                Data = dto.DataOperazione,
+                Data = dto.Data,
                 Note = dto.Note ?? "Inserito da dashboard",
                 TassoCambio = 1.0m // Iniziale, potresti espanderlo in futuro
             };
@@ -327,5 +368,25 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context) : IPor
             // Logga l'errore se hai un logger, altrimenti lo rilanciamo per il controller
             throw new Exception($"Errore durante la registrazione: {ex.Message}");
         }
+    }
+
+    public async Task<IEnumerable<AssetPortafoglio>> GetAssetsAttiviAsync(Guid utenteId)
+    {
+        return await _context.AssetsPortafoglio
+            .Include(a => a.Titolo)
+            .Where(a => a.UtenteId == utenteId && a.QuantitaTotale > 0)
+            .ToListAsync(); // Questo esegue la query e la trasforma in una lista
+    }
+
+    public async Task<(decimal Commissioni, decimal Tasse)> GetTotaleCostiTransazioniAsync(Guid utenteId)
+    {
+        var transazioni = await _context.Transazioni
+        .Where(t => t.AssetPortafoglio.UtenteId == utenteId) 
+        .ToListAsync();
+
+        return (
+            Commissioni: transazioni.Sum(t => t.Commissioni),
+            Tasse: transazioni.Sum(t => t.Tasse)
+        );
     }
 }

@@ -5,6 +5,8 @@ namespace AnalistaFinanziarioIA.Core.Interfaces
 {
     public interface IPortafoglioRepository
     {
+        Task<Transazione?> GetTransazioneByIdAsync(int id);
+        
         Task<AssetPortafoglio> AggiungiTransazioneAsync(Transazione transazione, Guid utenteId, int titoloId);
         Task<IEnumerable<AssetPortafoglio>> GetPortafoglioUtenteAsync(Guid utenteId);
         Task<decimal> CalcolaRendimentoTotaleAsync(int assetId, decimal prezzoAttuale);
@@ -15,7 +17,8 @@ namespace AnalistaFinanziarioIA.Core.Interfaces
         Task<bool> AggiornaTransazioneAsync(int id, Transazione input);
         Task<IEnumerable<Transazione>> GetStoriaFiltrataAsync(Guid utenteId, string? searchTerm);
         Task<List<AssetDisplayDto>> GetDashboardAssetsAsync(Guid utenteId);
-
+        Task<IEnumerable<AssetPortafoglio>> GetAssetsAttiviAsync(Guid utenteId);
         Task<bool> RegistraOperazioneCompletaAsync(RegistraTransazioneDto dto);
+        Task<(decimal Commissioni, decimal Tasse)> GetTotaleCostiTransazioniAsync(Guid utenteId);
     }
 }

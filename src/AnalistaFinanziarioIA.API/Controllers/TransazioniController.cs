@@ -2,7 +2,6 @@
 using AnalistaFinanziarioIA.Core.Interfaces;
 using AnalistaFinanziarioIA.Core.Models;
 using Microsoft.AspNetCore.Mvc;
-using System.Text.Json;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -14,7 +13,20 @@ public class TransazioniController(IPortafoglioRepository _repository) : Control
     {
         // Usiamo il nome corretto del metodo del repository
         var storia = await _repository.GetStoriaFiltrataAsync(utenteId, search);
-        return Ok(storia);
+
+        var risultato = storia.Select(t => new {
+            t.Id,
+            t.Data,
+            t.Tipo,
+            t.Quantita,
+            t.PrezzoUnitario,
+            t.Note,
+            // Prendiamo solo il nome o il ticker, non tutto l'oggetto Asset
+            TitoloNome = t.AssetPortafoglio?.Titolo?.Nome ?? "N/A",
+            Ticker = t.AssetPortafoglio?.Titolo?.Simbolo ?? "N/A"
+        });
+
+        return Ok(risultato);
     }
 
     // ELIMINA: Fondamentale per correggere errori
@@ -28,12 +40,23 @@ public class TransazioniController(IPortafoglioRepository _repository) : Control
 
     // MODIFICA: Per cambiare prezzo o quantità senza cancellare
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id, [FromBody] Transazione input)
+    public async Task<IActionResult> Update(int id, [FromBody] RegistraTransazioneDto dto)
     {
-        // Assicurati che il metodo nel repository accetti (int, Transazione)
-        var successo = await _repository.AggiornaTransazioneAsync(id, input);
+        // Mappiamo il DTO verso l'oggetto Transazione che il repository si aspetta
+        var transazioneUpdate = new Transazione
+        {
+            Quantita = dto.Quantita,
+            PrezzoUnitario = dto.PrezzoUnitario, // Qui risolviamo il mismatch dei nomi
+            Commissioni = dto.Commissioni,
+            Tasse = dto.Tasse,
+            Note = dto.Note ?? "",
+            Data = dto.Data
+        };
+
+        var successo = await _repository.AggiornaTransazioneAsync(id, transazioneUpdate);
+
         if (!successo) return NotFound();
-        return Ok();
+        return Ok(new { message = "Transazione aggiornata con successo" });
     }
 
     [HttpPost("registra")]
@@ -59,6 +82,37 @@ public class TransazioniController(IPortafoglioRepository _repository) : Control
         {
             return BadRequest(new { errore = ex.Message });
         }
+    }
+
+    // Recupera una singola transazione per la modifica
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetById(int id)
+    {
+        // Recuperiamo la transazione includendo l'asset e il titolo per avere il nome
+        var transazione = await _repository.GetTransazioneByIdAsync(id);
+
+        if (transazione == null) return NotFound();
+
+        // Usiamo lo stesso trucco della proiezione per evitare cicli circolari
+        return Ok(new
+        {
+            transazione.Id,
+            transazione.Data,
+            transazione.Tipo,
+            transazione.Quantita,
+            transazione.PrezzoUnitario,
+            transazione.Commissioni,
+            transazione.Tasse,
+            transazione.Note,            
+            AssetPortafoglio = new
+            {
+                Titolo = new
+                {
+                    Nome = transazione.AssetPortafoglio?.Titolo?.Nome ?? "N/A",
+                    Isin = transazione.AssetPortafoglio?.Titolo?.Isin ?? "N/A"
+                }
+            }
+        });
     }
 
 }

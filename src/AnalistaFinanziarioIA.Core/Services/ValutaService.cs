@@ -12,7 +12,7 @@ namespace AnalistaFinanziarioIA.Core.Services
         public decimal GetTassoCambio(string da, string a)
         {
             if (da == a) return 1.0m;
-            if (da == "USD" && a == "EUR") return 0.92m; // Esempio: 1 USD = 0.92 EUR
+            if (da == "USD" && a == "EUR") return 0.85m; // Esempio: 1 USD = 0.92 EUR
             if (da == "EUR" && a == "USD") return 1.09m; // Esempio: 1 EUR = 1.09 USD
             return 1.0m;
         }

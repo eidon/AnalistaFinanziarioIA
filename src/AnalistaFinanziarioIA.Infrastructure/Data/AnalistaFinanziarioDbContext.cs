@@ -93,5 +93,16 @@ public class AnalistaFinanziarioDbContext : DbContext
         modelBuilder.Entity<Dividendo>().ToTable("Dividendi");
         modelBuilder.Entity<Utente>().ToTable("Utenti");
 
+        // 7. PROTEZIONE STORICO TRANSAZIONI
+        modelBuilder.Entity<Transazione>(entity =>
+        {
+            entity.ToTable("Transazioni"); // Coerenza con il punto 6
+
+            entity.HasOne(t => t.AssetPortafoglio) // Assicurati che la proprietà si chiami così nel modello Transazione
+                  .WithMany(a => a.Transazioni)
+                  .HasForeignKey(t => t.AssetPortafoglioId) // O il nome della tua FK (es. AssetId)
+                  .OnDelete(DeleteBehavior.Restrict); // <--- Impedisce la cancellazione automatica
+        });
+
     }
 }

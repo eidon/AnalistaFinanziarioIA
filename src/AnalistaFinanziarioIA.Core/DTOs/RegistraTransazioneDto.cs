@@ -15,11 +15,11 @@ namespace AnalistaFinanziarioIA.Core.DTOs
         public TitoloLookupDto? TitoloLookup { get; set; }
 
         public decimal Quantita { get; set; }
-        public decimal PrezzoUnita { get; set; } // Nome corretto dal tuo JS
+        public decimal PrezzoUnitario { get; set; }
         public decimal Commissioni { get; set; }
         public decimal Tasse { get; set; }
         public string? Note { get; set; }
-        public DateTime DataOperazione { get; set; }
+        public DateTime Data { get; set; }
 
         // Se vuoi gestire Acquisto/Vendita dalla modale, aggiungi anche questo
         public string TipoOperazione { get; set; } = "Acquisto";

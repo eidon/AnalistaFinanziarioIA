@@ -23,8 +23,8 @@ namespace AnalistaFinanziarioIA.Core.DTOs
 
         public string? Note { get; set; }
 
-        // Opzionale: se vuoi permettere all'utente di scegliere la data, 
-        // altrimenti la decide il server come DateTime.UtcNow
         public DateTime? Data { get; set; }
+
+        public string TipoOperazione { get; set; } = "Acquisto";
     }
 }

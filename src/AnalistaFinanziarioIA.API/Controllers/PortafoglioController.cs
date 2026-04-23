@@ -36,7 +36,11 @@ public class PortafoglioController(
     {
         // 1. Validazione (FluentValidation)
         var validationResult = await _validator.ValidateAsync(dto);
-        if (!validationResult.IsValid) return BadRequest(validationResult.Errors);
+        if (!validationResult.IsValid)
+        {
+            // Restituisce un oggetto tipo { "Data": ["Messaggio 1"], "Quantita": ["Messaggio 2"] }
+            return BadRequest(validationResult.ToDictionary());
+        }
 
         try
         {
@@ -94,7 +98,7 @@ public class PortafoglioController(
                 Tasse = dto.Tasse,
                 Note = dto.Note,
                 Data = dto.Data ?? DateTime.UtcNow,
-                Tipo = TipoTransazione.Acquisto                
+                Tipo = Enum.TryParse<TipoTransazione>(dto.TipoOperazione, true, out var t) ? t : TipoTransazione.Acquisto
                 // Nota: UtenteId e TitoloId vengono gestiti dal repository sotto
             };
 
@@ -104,10 +108,10 @@ public class PortafoglioController(
 
             return Ok(new
             {
-                Messaggio = "Operazione registrata con successo",
+                Messaggio = assetAggiornato == null ? "Posizione chiusa con successo" : "Operazione registrata con successo",
                 TitoloId = idTitoloEffettivo,
-                NuovaQuantita = assetAggiornato.QuantitaTotale,
-                NuovoPrezzoMedio = assetAggiornato.PrezzoMedioCarico
+                NuovaQuantita = assetAggiornato?.QuantitaTotale ?? 0, // Se null, restituisce 0
+                NuovoPrezzoMedio = assetAggiornato?.PrezzoMedioCarico ?? 0 // Se null, restituisce 0
             });
         }
         catch (Exception ex)
@@ -142,5 +146,30 @@ public class PortafoglioController(
             }).ToList();
 
         return Ok(risultato);
+    }
+
+    [HttpGet("my-assets/{utenteId}")]
+    public async Task<IActionResult> GetMyAssets(Guid utenteId, [FromQuery] string? query)
+    {
+        // Recuperiamo gli asset attivi dell'utente (quantità > 0)
+        // Includiamo i dati del Titolo per avere Nome e Simbolo
+        var assets = await _repository.GetAssetsAttiviAsync(utenteId);
+
+        var risultati = assets
+            .Where(a => string.IsNullOrEmpty(query) ||
+                        a.Titolo.Nome.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                        a.Titolo.Simbolo.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .Select(a => new {
+                // Fondamentale: qui passiamo il TitoloId reale
+                Id = a.TitoloId,
+                Simbolo = a.Titolo.Simbolo,
+                Nome = a.Titolo.Nome,
+                QuantitaDisponibile = a.QuantitaTotale,
+                Valuta = a.Titolo.Valuta,
+                PrezzoMedio = a.PrezzoMedioCarico
+            })
+            .ToList();
+
+        return Ok(risultati);
     }
 }

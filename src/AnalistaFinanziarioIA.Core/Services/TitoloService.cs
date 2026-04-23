@@ -3,55 +3,122 @@ using AnalistaFinanziarioIA.Core.Interfaces;
 using AnalistaFinanziarioIA.Core.Models;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace AnalistaFinanziarioIA.Core.Services
 {
     public class TitoloService(HttpClient _httpClient, string apiKey) : ITitoloService
     {
+        //public async Task<List<TitoloLookupDto>> CercaTitoliAsync(string query)
+        //{
+
+        //    // Endpoint di ricerca generale di FMP
+        //    var url = $"https://financialmodelingprep.com/stable/search-name?query={query}&limit=10&apikey={apiKey}";
+
+        //    try
+        //    {
+        //        ConfiguraUserAgent();
+        //        var response = await _httpClient.GetAsync(url);
+
+        //        if (!response.IsSuccessStatusCode)
+        //        {
+        //            // Se ricevi 403, leggi il contenuto per capire perché
+        //            var errore = await response.Content.ReadAsStringAsync();
+        //            Console.WriteLine($"Errore API: {response.StatusCode} - {errore}");
+        //            return new List<TitoloLookupDto>();
+        //        }
+
+        //        var risultati = await response.Content.ReadFromJsonAsync<List<FmpSearchResult>>();
+
+        //        if (risultati == null) return new List<TitoloLookupDto>();
+
+        //        var convert =  risultati.Select(t => new TitoloLookupDto
+        //        {
+        //            Simbolo = t.Symbol,
+        //            Nome = t.Name,
+        //            Valuta = t.Currency ?? "EUR",
+        //            Mercato = t.ExchangeShortName ?? t.StockExchange,
+        //            // Convertiamo il tipo di FMP nel tuo Enum TipoTitolo (come stringa per il DTO)
+        //            Tipo = MappaTipoTitolo(t.Type, t.Symbol).ToString()
+        //        }).ToList();
+
+
+        //        return convert;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        // Logga l'errore se necessario
+        //        return new List<TitoloLookupDto>();
+        //    }
+        //}
+
         public async Task<List<TitoloLookupDto>> CercaTitoliAsync(string query)
         {
+            var risultatiFinali = new List<TitoloLookupDto>();
 
-            // Endpoint di ricerca generale di FMP
-
-            var url = $"https://financialmodelingprep.com/stable/search-name?query={query}&limit=10&apikey={apiKey}";
-
+            // 1. MOTORE FMP (Esistente)
             try
             {
+                var urlFmp = $"https://financialmodelingprep.com/stable/search-name?query={query}&limit=10&apikey={apiKey}";
                 ConfiguraUserAgent();
-                var response = await _httpClient.GetAsync(url);
+                var respFmp = await _httpClient.GetAsync(urlFmp);
 
-                if (!response.IsSuccessStatusCode)
+                if (respFmp.IsSuccessStatusCode)
                 {
-                    // Se ricevi 403, leggi il contenuto per capire perché
-                    var errore = await response.Content.ReadAsStringAsync();
-                    Console.WriteLine($"Errore API: {response.StatusCode} - {errore}");
-                    return new List<TitoloLookupDto>();
+                    var fmpData = await respFmp.Content.ReadFromJsonAsync<List<FmpSearchResult>>();
+                    if (fmpData != null)
+                    {
+                        risultatiFinali.AddRange(fmpData.Select(t => new TitoloLookupDto
+                        {
+                            Simbolo = t.Symbol,
+                            Nome = t.Name,
+                            Valuta = t.Currency ?? "EUR",
+                            Mercato = t.ExchangeShortName ?? t.StockExchange,
+                            Tipo = MappaTipoTitolo(t.Type, t.Symbol).ToString()
+                        }));
+                    }
                 }
-
-                var risultati = await response.Content.ReadFromJsonAsync<List<FmpSearchResult>>();
-
-                if (risultati == null) return new List<TitoloLookupDto>();
-
-                var convert =  risultati.Select(t => new TitoloLookupDto
-                {
-                    Simbolo = t.Symbol,
-                    Nome = t.Name,
-                    Valuta = t.Currency ?? "EUR",
-                    Mercato = t.ExchangeShortName ?? t.StockExchange,
-                    // Convertiamo il tipo di FMP nel tuo Enum TipoTitolo (come stringa per il DTO)
-                    Tipo = MappaTipoTitolo(t.Type, t.Symbol).ToString()
-                }).ToList();
-
-
-                return convert;
             }
-            catch (Exception ex)
+            catch (Exception ex) { Console.WriteLine($"FMP Error: {ex.Message}"); }
+
+            // 2. MOTORE YAHOO (Integrazione per titoli mancanti come VWCE)
+            // Se FMP ha trovato poco o stiamo cercando un ETF, Yahoo è obbligatorio
+            try
             {
-                // Logga l'errore se necessario
-                return new List<TitoloLookupDto>();
+                var urlYahoo = $"https://query1.finance.yahoo.com/v1/finance/search?q={query}&quotesCount=10";
+                var respYahoo = await _httpClient.GetAsync(urlYahoo);
+
+                if (respYahoo.IsSuccessStatusCode)
+                {
+                    var jsonString = await respYahoo.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(jsonString);
+                    var quotes = doc.RootElement.GetProperty("quotes").EnumerateArray();
+
+                    foreach (var q in quotes)
+                    {
+                        var simbolo = q.GetProperty("symbol").GetString();
+
+                        // Evitiamo duplicati se FMP ha già trovato lo stesso simbolo
+                        if (!risultatiFinali.Any(r => r.Simbolo.Equals(simbolo, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            risultatiFinali.Add(new TitoloLookupDto
+                            {
+                                Simbolo = simbolo,
+                                Nome = q.TryGetProperty("longname", out var ln) ? ln.GetString() : q.GetProperty("shortname").GetString(),
+                                Valuta = "EUR", // Default per ricerca EU
+                                Mercato = q.TryGetProperty("exchDisp", out var exch) ? exch.GetString() : "Yahoo",
+                                Tipo = q.GetProperty("quoteType").GetString() == "ETF" ? "ETF" : "Azione"
+                            });
+                        }
+                    }
+                }
             }
+            catch (Exception ex) { Console.WriteLine($"Yahoo Search Error: {ex.Message}"); }
+
+            return risultatiFinali;
         }
+
 
         public async Task<TitoloLookupDto?> RecuperaDettagliCompletiAsync(string simbolo)
         {
@@ -150,18 +217,27 @@ namespace AnalistaFinanziarioIA.Core.Services
 
         public TipoTitolo MappaTipoTitolo(string? fmpType, string simbolo)
         {
+            // Se non abbiamo il tipo dal provider, proviamo a capire dal simbolo
             if (string.IsNullOrEmpty(fmpType))
             {
-                // Se FMP non ci dà il tipo, proviamo a indovinare dal simbolo
-                if (simbolo.Contains(".MI") || simbolo.Length <= 5) return TipoTitolo.Azione;
-                return TipoTitolo.Azione; // Default
+                // Se è VWCE, sappiamo che è un ETF
+                if (simbolo.StartsWith("VWCE", StringComparison.OrdinalIgnoreCase))
+                    return TipoTitolo.ETF;
+
+                if (simbolo.Contains(".MI") || simbolo.Length <= 5)
+                    return TipoTitolo.Azione;
+
+                return TipoTitolo.Azione;
             }
 
-            return fmpType.ToLower() switch
+            // Trasformiamo tutto in minuscolo così "ETF" e "etf" sono la stessa cosa
+            var tipoPulito = fmpType.ToLower().Trim();
+
+            return tipoPulito switch
             {
-                "stock" => TipoTitolo.Azione,
-                "trust" or "etf" or "fund" or "mutual_fund" => TipoTitolo.ETF,
-                "cryptocurrency" => TipoTitolo.Crypto,
+                "stock" or "equity" or "common stock" => TipoTitolo.Azione,
+                "etf" or "trust" or "fund" or "mutual_fund" or "mutualfund" => TipoTitolo.ETF,
+                "cryptocurrency" or "crypto" => TipoTitolo.Crypto,
                 _ => TipoTitolo.Azione
             };
         }

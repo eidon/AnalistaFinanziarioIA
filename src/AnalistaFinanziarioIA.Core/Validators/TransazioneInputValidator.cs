@@ -7,6 +7,11 @@ public class TransazioneInputValidator : AbstractValidator<TransazioneInputDto>
 {
     public TransazioneInputValidator()
     {
+        RuleFor(x => x.Data)
+            .Cascade(CascadeMode.Stop) // Si ferma al primo errore trovato per questo campo
+            .NotNull().WithMessage("La data dell'operazione è obbligatoria.")
+            .LessThanOrEqualTo(DateTime.UtcNow).WithMessage("Non puoi inserire una data futura.");
+
         RuleFor(x => x.Quantita)
             .GreaterThan(0).WithMessage("La quantità deve essere maggiore di zero.");
 

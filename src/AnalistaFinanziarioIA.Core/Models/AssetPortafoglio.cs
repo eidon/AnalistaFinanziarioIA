@@ -13,6 +13,7 @@
         // Prezzo medio in valuta originale del titolo
         public decimal PrezzoMedioCarico { get; set; }
 
+        public decimal ProfittoRealizzatoTotale { get; set; } = 0;
         // Relazione: un asset ha molte transazioni e dividendi
         public ICollection<Transazione> Transazioni { get; set; } = new List<Transazione>();
         public ICollection<Dividendo> Dividendi { get; set; } = new List<Dividendo>();

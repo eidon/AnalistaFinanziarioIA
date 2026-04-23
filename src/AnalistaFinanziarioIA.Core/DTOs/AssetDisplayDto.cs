@@ -15,5 +15,7 @@
         public decimal InvestitoTotale => Quantita * Pmc;
         public decimal GuadagnoAssoluto => ValoreDiMercato - InvestitoTotale;
         public decimal GuadagnoPercentuale => Pmc > 0 ? ((PrezzoAttuale - Pmc) / Pmc) * 100 : 0;
+
+        public decimal ProfittoRealizzatoTotale { get; set; }
     }
 }
