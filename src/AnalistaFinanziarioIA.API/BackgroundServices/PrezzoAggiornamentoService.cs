@@ -18,21 +18,24 @@ namespace AnalistaFinanziarioIA.API.BackgroundServices
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                using var scope = _services.CreateScope();
-                var titoloRepo = scope.ServiceProvider.GetRequiredService<ITitoloRepository>();
-                var quotazioneRepo = scope.ServiceProvider.GetRequiredService<IQuotazioneRepository>();
-                var yahooFinance = scope.ServiceProvider.GetRequiredService<IYahooFinanceService>();
-
-                var titoli = await titoloRepo.GetAllAsync();
-
-                foreach (var titolo in titoli)
+                // Dispose the scope before the delay to release DbContext and other resources
+                using (var scope = _services.CreateScope())
                 {
-                    var nuovoPrezzo = await yahooFinance.GetQuoteAsync(titolo.Simbolo);
+                    var titoloRepo = scope.ServiceProvider.GetRequiredService<ITitoloRepository>();
+                    var quotazioneRepo = scope.ServiceProvider.GetRequiredService<IQuotazioneRepository>();
+                    var yahooFinance = scope.ServiceProvider.GetRequiredService<IYahooFinanceService>();
 
-                    if (nuovoPrezzo > 0)
+                    var titoli = await titoloRepo.GetAllAsync();
+
+                    foreach (var titolo in titoli)
                     {
-                        await quotazioneRepo.SalvaQuotazioneAsync(titolo.Id, nuovoPrezzo);
-                        _logger.LogDebug("Prezzo aggiornato per {Simbolo}: {Prezzo}", titolo.Simbolo, nuovoPrezzo);
+                        var nuovoPrezzo = await yahooFinance.GetQuoteAsync(titolo.Simbolo);
+
+                        if (nuovoPrezzo > 0)
+                        {
+                            await quotazioneRepo.SalvaQuotazioneAsync(titolo.Id, nuovoPrezzo);
+                            _logger.LogDebug("Prezzo aggiornato per {Simbolo}: {Prezzo}", titolo.Simbolo, nuovoPrezzo);
+                        }
                     }
                 }
 

@@ -76,7 +76,7 @@ public class TransazioneService(
         return assetAggiornato != null;
     }
 
-    public async Task<bool> RegistraOperazioneAsync(RegistraTransazioneDto dto)
+    public async Task<bool> RegistraDashboardAsync(RegistraTransazioneDto dto)
     {
         // 1. RISOLUZIONE TITOLO (Cerca o Crea)
         int idTitoloEffettivo;

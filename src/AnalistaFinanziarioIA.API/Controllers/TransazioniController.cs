@@ -66,7 +66,7 @@ public class TransazioniController(
 
         try
         {
-            var successo = await _transazioneService.RegistraOperazioneAsync(dto);
+            var successo = await _transazioneService.RegistraDashboardAsync(dto);
 
             if (successo)
                 return Ok(new { message = "Transazione registrata con successo" });
