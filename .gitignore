@@ -86,3 +86,4 @@ appsettings.*.json
 /src/AnalistaFinanziarioIA.API/wwwroot/js
 /src/AnalistaFinanziarioIA.API/wwwroot/js/dist/Modules/Portafoglio.js
 /src/AnalistaFinanziarioIA.API/wwwroot/js/dist/Modules/Portafoglio.js.map
+/struttura_soluzione.txt
