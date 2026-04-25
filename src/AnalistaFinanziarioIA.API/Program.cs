@@ -127,6 +127,7 @@ builder.Services.AddSingleton<IChatSessionService, InMemoryChatSessionService>()
 // 9. BACKGROUND SERVICES
 // ─────────────────────────────────────────────
 builder.Services.AddHostedService<PrezzoAggiornamentoService>();
+builder.Services.AddHostedService<SessionCleanupService>();
 
 // ─────────────────────────────────────────────
 // APP PIPELINE

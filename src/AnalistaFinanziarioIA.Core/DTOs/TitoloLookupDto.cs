@@ -16,5 +16,5 @@ public class TitoloLookupDto
     // Flag per far capire al frontend se il titolo è nuovo o già censito
     public bool GiaPresenteNelDb => Id.HasValue;
 
-    public decimal PrezzoAttuale { get; internal set; }
+    public decimal PrezzoAttuale { get; set; }
 }

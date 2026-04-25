@@ -1,12 +1,7 @@
-﻿
+using AnalistaFinanziarioIA.Core.Interfaces;
+
 namespace AnalistaFinanziarioIA.Core.Services
 {
-    public interface IValutaService
-    {
-        decimal GetTassoCambio(string da, string a);
-        decimal ConvertiInEur(decimal importo, string valutaOriginale);
-    }
-
     public class ValutaService : IValutaService
     {
         public decimal GetTassoCambio(string da, string a)

@@ -1,7 +1,4 @@
-﻿
 using AnalistaFinanziarioIA.Core.Interfaces;
-using AnalistaFinanziarioIA.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
 
 namespace AnalistaFinanziarioIA.API.BackgroundServices
 {
@@ -9,7 +6,7 @@ namespace AnalistaFinanziarioIA.API.BackgroundServices
     {
         private readonly IServiceProvider _services;
         private readonly ILogger<PrezzoAggiornamentoService> _logger;
-        private readonly TimeSpan _periodo = TimeSpan.FromMinutes(15); // Aggiorna ogni 15 min
+        private readonly TimeSpan _periodo = TimeSpan.FromMinutes(15);
 
         public PrezzoAggiornamentoService(IServiceProvider services, ILogger<PrezzoAggiornamentoService> logger)
         {
@@ -21,32 +18,24 @@ namespace AnalistaFinanziarioIA.API.BackgroundServices
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                using (var scope = _services.CreateScope())
+                using var scope = _services.CreateScope();
+                var titoloRepo = scope.ServiceProvider.GetRequiredService<ITitoloRepository>();
+                var quotazioneRepo = scope.ServiceProvider.GetRequiredService<IQuotazioneRepository>();
+                var yahooFinance = scope.ServiceProvider.GetRequiredService<IYahooFinanceService>();
+
+                var titoli = await titoloRepo.GetAllAsync();
+
+                foreach (var titolo in titoli)
                 {
-                    var context = scope.ServiceProvider.GetRequiredService<AnalistaFinanziarioDbContext>();
-                    var yahooFinance = scope.ServiceProvider.GetRequiredService<IYahooFinanceService>();
+                    var nuovoPrezzo = await yahooFinance.GetQuoteAsync(titolo.Simbolo);
 
-                    // 1. Prendi tutti i ticker distinti presenti nel DB
-                    var tickers = await context.Titoli.Select(t => t.Simbolo).ToListAsync();
-
-                    foreach (var ticker in tickers)
+                    if (nuovoPrezzo > 0)
                     {
-                        // 2. Recupera il prezzo reale (es. da Yahoo)
-                        var nuovoPrezzo = await yahooFinance.GetQuoteAsync(ticker);
-
-                        if (nuovoPrezzo > 0)
-                        {
-                            // 3. Aggiorna tutti i titoli con quel ticker
-                            var titoliDaAggiornare = context.Titoli.Where(t => t.Simbolo == ticker);
-                            foreach (var t in titoliDaAggiornare)
-                            {
-                                t.UltimoPrezzo = nuovoPrezzo;
-                                t.DataUltimoPrezzo = DateTime.UtcNow;
-                            }
-                        }
+                        await quotazioneRepo.SalvaQuotazioneAsync(titolo.Id, nuovoPrezzo);
+                        _logger.LogDebug("Prezzo aggiornato per {Simbolo}: {Prezzo}", titolo.Simbolo, nuovoPrezzo);
                     }
-                    await context.SaveChangesAsync();
                 }
+
                 await Task.Delay(_periodo, stoppingToken);
             }
         }

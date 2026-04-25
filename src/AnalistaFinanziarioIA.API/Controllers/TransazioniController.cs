@@ -1,17 +1,18 @@
-﻿using AnalistaFinanziarioIA.Core.DTOs;
+using AnalistaFinanziarioIA.Core.DTOs;
 using AnalistaFinanziarioIA.Core.Interfaces;
 using AnalistaFinanziarioIA.Core.Models;
 using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
 [Route("api/[controller]")]
-public class TransazioniController(IPortafoglioRepository _repository) : ControllerBase
+public class TransazioniController(
+    IPortafoglioRepository _repository,
+    ITransazioneService _transazioneService) : ControllerBase
 {
     // Recupera la storia per la sezione inferiore
     [HttpGet("utente/{utenteId}")]
     public async Task<IActionResult> GetStoria(Guid utenteId, [FromQuery] string? search)
     {
-        // Usiamo il nome corretto del metodo del repository
         var storia = await _repository.GetStoriaFiltrataAsync(utenteId, search);
 
         var risultato = storia.Select(t => new {
@@ -21,7 +22,6 @@ public class TransazioniController(IPortafoglioRepository _repository) : Control
             t.Quantita,
             t.PrezzoUnitario,
             t.Note,
-            // Prendiamo solo il nome o il ticker, non tutto l'oggetto Asset
             TitoloNome = t.AssetPortafoglio?.Titolo?.Nome ?? "N/A",
             Ticker = t.AssetPortafoglio?.Titolo?.Simbolo ?? "N/A"
         });
@@ -42,11 +42,10 @@ public class TransazioniController(IPortafoglioRepository _repository) : Control
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] RegistraTransazioneDto dto)
     {
-        // Mappiamo il DTO verso l'oggetto Transazione che il repository si aspetta
         var transazioneUpdate = new Transazione
         {
             Quantita = dto.Quantita,
-            PrezzoUnitario = dto.PrezzoUnitario, // Qui risolviamo il mismatch dei nomi
+            PrezzoUnitario = dto.PrezzoUnitario,
             Commissioni = dto.Commissioni,
             Tasse = dto.Tasse,
             Note = dto.Note ?? "",
@@ -62,21 +61,17 @@ public class TransazioniController(IPortafoglioRepository _repository) : Control
     [HttpPost("registra")]
     public async Task<IActionResult> Registra([FromBody] RegistraTransazioneDto dto)
     {
-        // 1. NON SERVE PIÙ il Deserialize! 
-        // ASP.NET ha già trasformato il JSON in dto.TitoloLookup automaticamente.
-
         if (dto == null || dto.TitoloLookup == null)
             return BadRequest("Dati della transazione o del titolo mancanti.");
 
         try
         {
-            // 2. Passa direttamente il DTO al repository
-            var successo = await _repository.RegistraOperazioneCompletaAsync(dto);
+            var successo = await _transazioneService.RegistraOperazioneAsync(dto);
 
             if (successo)
                 return Ok(new { message = "Transazione registrata con successo" });
 
-            return StatusCode(500, "Errore durante il salvataggio nel repository.");
+            return StatusCode(500, "Errore durante il salvataggio.");
         }
         catch (Exception ex)
         {
@@ -88,12 +83,10 @@ public class TransazioniController(IPortafoglioRepository _repository) : Control
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
     {
-        // Recuperiamo la transazione includendo l'asset e il titolo per avere il nome
         var transazione = await _repository.GetTransazioneByIdAsync(id);
 
         if (transazione == null) return NotFound();
 
-        // Usiamo lo stesso trucco della proiezione per evitare cicli circolari
         return Ok(new
         {
             transazione.Id,
@@ -103,7 +96,7 @@ public class TransazioniController(IPortafoglioRepository _repository) : Control
             transazione.PrezzoUnitario,
             transazione.Commissioni,
             transazione.Tasse,
-            transazione.Note,            
+            transazione.Note,
             AssetPortafoglio = new
             {
                 Titolo = new

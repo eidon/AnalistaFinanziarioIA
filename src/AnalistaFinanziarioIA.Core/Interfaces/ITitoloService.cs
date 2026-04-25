@@ -10,5 +10,5 @@ public interface ITitoloService
 
     Task<TitoloLookupDto?> RecuperaDettagliCompletiAsync(string simbolo);
 
-    TipoTitolo MappaTipoTitolo(string? fmpType, string simbolo);
+    TipoTitolo MappaTipoTitolo(string? fmpType, string? simbolo);
 }
