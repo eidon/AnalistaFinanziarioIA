@@ -25,6 +25,6 @@ namespace AnalistaFinanziarioIA.Core.DTOs
 
         public DateTime? Data { get; set; }
 
-        public string TipoOperazione { get; set; } = "Acquisto";
+        public int TipoOperazione { get; set; }
     }
 }

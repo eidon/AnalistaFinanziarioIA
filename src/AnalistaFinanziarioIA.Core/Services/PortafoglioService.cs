@@ -1,4 +1,6 @@
-﻿using AnalistaFinanziarioIA.Core.Interfaces;
+﻿using AnalistaFinanziarioIA.Core.DTOs;
+using AnalistaFinanziarioIA.Core.Interfaces;
+using AnalistaFinanziarioIA.Core.Models;
 
 namespace AnalistaFinanziarioIA.Core.Services
 {
@@ -66,6 +68,51 @@ namespace AnalistaFinanziarioIA.Core.Services
 
                 Assets = assetsDaVisualizzare
             };
+        }
+
+        public async Task<IEnumerable<StoriaTransazioniDto>> GetStoriaRaggruppataAsync(Guid utenteId, string? search)
+        {
+            var transazioni = await _repository.GetStoriaFiltrataAsync(utenteId, search);
+
+            return transazioni
+                .GroupBy(t => new { t.Data.Year, t.Data.Month })
+                .OrderByDescending(g => g.Key.Year)
+                .ThenByDescending(g => g.Key.Month)
+                .Select(g => new StoriaTransazioniDto
+                {
+                    Periodo = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMMM yyyy"),
+                    Movimenti = g.Select(t => new MovimentoDto
+                    {
+                        Id = t.Id,
+                        GiornoMese = t.Data.ToString("dd.MM"),
+                        TitoloNome = t.AssetPortafoglio?.Titolo?.Nome ?? "N/A",
+                        Ticker = t.AssetPortafoglio?.Titolo?.Simbolo ?? "",
+                        Tipo = t.Tipo.ToString(),
+                        Descrizione = $"{(t.Tipo == TipoTransazione.Acquisto ? "Acquistato" : "Venduto")} x{t.Quantita:N0} a {t.PrezzoUnitario:N2} {t.AssetPortafoglio?.Titolo?.Valuta}",
+                        TotaleOperazione = t.Quantita * t.PrezzoUnitario,
+                        Valuta = t.AssetPortafoglio?.Titolo?.Valuta ?? "EUR",
+                        Icona = t.Tipo == TipoTransazione.Acquisto ? "in" : "out"
+                    }).ToList()
+                }).ToList();
+        }
+
+        public async Task<IEnumerable<object>> GetAssetsFiltratiAsync(Guid utenteId, string? query)
+        {
+            var assets = await _repository.GetAssetsAttiviAsync(utenteId);
+
+            return assets
+                .Where(a => string.IsNullOrEmpty(query) ||
+                            a.Titolo!.Nome.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                            a.Titolo!.Simbolo.Contains(query, StringComparison.OrdinalIgnoreCase))
+                .Select(a => new {
+                    Id = a.TitoloId, // ID reale del titolo per future operazioni
+                    Simbolo = a.Titolo!.Simbolo,
+                    Nome = a.Titolo.Nome,
+                    QuantitaDisponibile = a.QuantitaTotale,
+                    Valuta = a.Titolo.Valuta,
+                    PrezzoMedio = a.PrezzoMedioCarico
+                })
+                .ToList();
         }
 
     }

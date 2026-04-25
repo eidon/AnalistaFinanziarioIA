@@ -28,6 +28,17 @@
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
         }
+        /* Rimuove lo stepper (frecce) */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type=number] {
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
     </style>
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
@@ -88,20 +99,20 @@
                     <h2 class="text-lg font-semibold text-white">Storia Transazioni</h2>
                     <p class="text-xs text-gray-500">Gestisci, modifica o elimina i movimenti passati</p>
                 </div>
-                <div class="flex items-center gap-2">
-                    <div class="relative">
+                <div class="p-4 flex flex-col md:flex-row gap-3 border-b border-gray-700 bg-gray-800/50">
+                    <div class="relative flex-1">
                         <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
-                            <i class="fas fa-search"></i>
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                         </span>
                         <input type="text" id="filtro-ricerca" placeholder="Cerca titolo o ISIN..."
-                               class="bg-gray-900 border border-gray-700 text-white text-xs rounded-xl pl-10 pr-4 py-2 focus:ring-blue-500 focus:border-blue-500 w-64">
+                               class="bg-gray-900 border border-gray-700 text-white text-xs rounded-xl pl-10 pr-4 py-2 focus:ring-blue-500 focus:border-blue-500 w-full">
                     </div>
 
                     <select id="filtro-tipo"
-                            class="bg-gray-900 border border-gray-700 text-white text-xs rounded-xl px-4 py-2 focus:ring-blue-500 focus:border-blue-500">
-                        <option value="tutti">Tutti i movimenti</option>
-                        <option value="acquisto">Acquisti</option>
-                        <option value="vendita">Vendite</option>
+                            class="bg-gray-900 border border-gray-700 text-white text-xs rounded-xl px-4 py-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                        <option value="tutti">Tutti i tipi</option>
+                        <option value="0">Acquisti</option>
+                        <option value="1">Vendite</option>
                     </select>
                 </div>
                 <div class="overflow-x-auto overflow-y-auto max-h-[750px] relative">
@@ -179,27 +190,26 @@
                 <h3 class="font-bold text-white">Aggiungi transazione</h3>
                 <button onclick="chiudiModale()" class="text-gray-500 hover:text-white text-2xl">&times;</button>
             </div>
-            <div class="p-6 space-y-5">
-                <div id="container-tipo-operazione" class="flex bg-gray-800 p-1 rounded-xl mb-6 border border-gray-700">
-                    <button onclick="setTipoOperazione('Acquisto')" id="btn-buy"
-                            class="flex-1 py-2 rounded-lg text-sm font-bold transition-all bg-blue-600 text-white">
-                        ACQUISTO
-                    </button>
-                    <button onclick="setTipoOperazione('Vendita')" id="btn-sell"
-                            class="flex-1 py-2 rounded-lg text-sm font-bold transition-all text-gray-400 hover:text-white">
-                        VENDITA
-                    </button>
-                </div>
 
-                <input type="hidden" id="m-tipo-operazione" value="Acquisto">
+            <div class="p-6 space-y-5">
+                <div id="container-tipo-operazione" class="flex bg-gray-800 p-1 rounded-xl border border-gray-700">
+                    <button onclick="setTipoOperazione(0)" id="btn-buy" class="flex-1 py-2 rounded-lg text-sm font-bold transition-all">ACQUISTO</button>
+                    <button onclick="setTipoOperazione(1)" id="btn-sell" class="flex-1 py-2 rounded-lg text-sm font-bold transition-all">VENDITA</button>
+                </div>
+                <input type="hidden" id="m-tipo-operazione" value="0">
 
                 <div class="relative">
                     <label class="text-xs text-gray-500 block mb-1 uppercase font-bold">Strumento</label>
-                    <input type="text" id="ricerca-titolo" oninput="eseguiRicerca(this.value)" placeholder="Cerca ticker (es. AAPL, ENI.MI...)" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl focus:border-blue-500 text-white">
+                    <div class="relative">
+                        <input type="text" id="ricerca-titolo" oninput="eseguiRicerca(this.value)" placeholder="Cerca ticker (es. AAPL, ENI.MI...)" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl focus:border-blue-500 text-white pr-10">
+                        <div id="search-loader" class="hidden absolute right-3 top-1/2 -translate-y-1/2">
+                            <div class="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                        </div>
+                    </div>
                     <div id="lista-suggerimenti" class="absolute w-full mt-1 bg-gray-800/95 border border-gray-700 rounded-xl hidden z-50 max-h-64 overflow-y-auto"></div>
                 </div>
 
-                <div class="mb-4">
+                <div>
                     <label class="text-xs text-gray-500 block mb-1 uppercase font-bold">Codice ISIN (Opzionale)</label>
                     <input type="text" id="m-isin" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white">
                 </div>
@@ -214,30 +224,37 @@
                     </div>
                     <div>
                         <label class="text-xs text-gray-500 block mb-1 uppercase font-bold">Prezzo Unitario</label>
-                        <input type="number" step="0.0001" id="m-prezzo" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white">
+                        <div class="relative">
+                            <input type="number" id="m-prezzo" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white pr-12">
+                            <span id="badge-valuta" class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-orange-400"></span>
+                        </div>
                     </div>
                 </div>
 
-                <div>
-                    <label class="text-xs text-gray-400 block mb-1 uppercase font-bold">Data Operazione</label>
-                    <input type="date" id="m-data" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white">
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-[10px] text-gray-500 mb-1 uppercase font-bold text-center">Data</label>
+                        <input type="date" id="m-data"
+                               class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white text-sm focus:border-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-gray-500 mb-1 uppercase font-bold text-center">Comm. (€)</label>
+                        <input type="number" id="m-commissioni" step="0.01" value="0"
+                               class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white text-sm focus:border-blue-500 outline-none text-center">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-gray-500 mb-1 uppercase font-bold text-center">Tasse (€)</label>
+                        <input type="number" id="m-tasse" step="0.01" value="0"
+                               class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white text-sm focus:border-blue-500 outline-none text-center">
+                    </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs text-gray-400 mb-1">Commissioni (€)</label>
-                        <input type="number" id="m-commissioni" step="0.01" value="0" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-400 mb-1">Tasse/Bolli (€)</label>
-                        <input type="number" id="m-tasse" step="0.01" value="0" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white">
-                    </div>
-                </div>
                 <div>
                     <label class="text-xs text-gray-500 block mb-1 uppercase font-bold">Note</label>
                     <textarea id="m-note" rows="2" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white focus:border-blue-500 outline-none"></textarea>
                 </div>
-                <button id="btn-salva-transazione" onclick="salvaTransazioneModale()" class="w-full bg-white text-black font-bold py-4 rounded-xl hover:bg-gray-200 transition shadow-lg mt-4">
+
+                <button id="btn-salva-transazione" onclick="salvaTransazioneModale()" class="w-full bg-white text-black font-bold py-4 rounded-xl hover:bg-gray-200 transition shadow-lg">
                     Salva Transazione
                 </button>
             </div>
@@ -280,6 +297,12 @@
                     clearInterval(checkReady);
                 }
             }, 100);
+        });
+        // Seleziona tutti gli input di tipo numero e applica l'auto-selezione al focus
+        document.querySelectorAll('input[type="number"]').forEach(input => {
+        input.addEventListener('focus', function() {
+            this.select();
+        });
         });
     </script>
 </body>

@@ -251,41 +251,35 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context, IValut
 
         foreach (var asset in assets)
         {
-            // 2. Calcolo del PMC (Media Ponderata degli Acquisti)
             var acquisti = asset.Transazioni
                 .Where(t => t.Tipo == TipoTransazione.Acquisto)
                 .ToList();
 
-            decimal pmc = 0;
+            decimal pmcInEuro = 0;
             if (acquisti.Any())
             {
-                decimal spesaTotale = acquisti.Sum(t => t.Quantita * t.PrezzoUnitario);
+                // CONVERTIAMO OGNI ACQUISTO IN EURO PRIMA DI FARE LA MEDIA
+                decimal spesaTotaleEur = acquisti.Sum(t =>
+                    (t.Quantita * _valutaService.ConvertiInEur(t.PrezzoUnitario, asset.Titolo?.Valuta ?? "EUR"))
+                );
                 decimal quantitaAcquistata = acquisti.Sum(t => t.Quantita);
-                pmc = quantitaAcquistata > 0 ? spesaTotale / quantitaAcquistata : 0;
+                pmcInEuro = quantitaAcquistata > 0 ? spesaTotaleEur / quantitaAcquistata : 0;
             }
 
-            // --- MODIFICA QUI: GESTIONE VALUTA ---
-
-            // 3. Recupero del prezzo attuale dal Titolo (es. 46.03 USD)
-            decimal prezzoGrezzo = (asset.Titolo?.UltimoPrezzo > 0)
-                ? asset.Titolo.UltimoPrezzo
-                : pmc;
-
-            // 4. CONVERSIONE IN EURO
-            // Se il titolo è USD, ConvertiInEur applicherà il tasso di cambio. Se è già EUR, restituirà il prezzo invariato.
+            // Prezzo attuale già convertito
+            decimal prezzoGrezzo = (asset.Titolo?.UltimoPrezzo > 0) ? asset.Titolo.UltimoPrezzo : pmcInEuro;
             decimal prezzoInEuro = _valutaService.ConvertiInEur(prezzoGrezzo, asset.Titolo?.Valuta ?? "EUR");
 
-            // 5. Mappatura nel DTO
             result.Add(new AssetDisplayDto
             {
                 AssetId = asset.Id,
                 TitoloNome = asset.Titolo?.Nome ?? "N/A",
                 Ticker = asset.Titolo?.Simbolo ?? "N/A",
                 Quantita = asset.QuantitaTotale,
-                Pmc = pmc,                // Il PMC è già salvato in EUR durante l'acquisto
-                PrezzoAttuale = prezzoInEuro, // <--- ORA È SEMPRE IN EUR
-                Valuta = "EUR",           // Segnaliamo che il DTO ora parla solo in Euro
-                ProfittoRealizzatoTotale = asset.ProfittoRealizzatoTotale
+                Pmc = pmcInEuro,              // PMC ORA È IN EURO
+                PrezzoAttuale = prezzoInEuro, // PREZZO ATTUALE È IN EURO
+                Valuta = "EUR",
+                ProfittoRealizzatoTotale = _valutaService.ConvertiInEur(asset.ProfittoRealizzatoTotale, asset.Titolo?.Valuta ?? "EUR")
             });
         }
 
@@ -381,12 +375,15 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context, IValut
     public async Task<(decimal Commissioni, decimal Tasse)> GetTotaleCostiTransazioniAsync(Guid utenteId)
     {
         var transazioni = await _context.Transazioni
-        .Where(t => t.AssetPortafoglio.UtenteId == utenteId) 
-        .ToListAsync();
+            .Include(t => t.AssetPortafoglio)
+            .ThenInclude(a => a.Titolo)
+            .Where(t => t.AssetPortafoglio.UtenteId == utenteId)
+            .ToListAsync();
 
+        // Dobbiamo convertire ogni singola voce in base alla valuta del titolo associato
         return (
-            Commissioni: transazioni.Sum(t => t.Commissioni),
-            Tasse: transazioni.Sum(t => t.Tasse)
+            Commissioni: transazioni.Sum(t => _valutaService.ConvertiInEur(t.Commissioni, t.AssetPortafoglio.Titolo.Valuta)),
+            Tasse: transazioni.Sum(t => _valutaService.ConvertiInEur(t.Tasse, t.AssetPortafoglio.Titolo.Valuta))
         );
     }
 }

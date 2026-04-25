@@ -1,118 +1,40 @@
 ﻿using AnalistaFinanziarioIA.Core.DTOs;
-using AnalistaFinanziarioIA.Core.Interfaces; // Dove sta 'IPortafoglioRepository'
-using AnalistaFinanziarioIA.Core.Models;     // Dove sta 'Transazione'
-using AnalistaFinanziarioIA.Core.Services;   // Dove sta 'PortafoglioService'
-using AnalistaFinanziarioIA.Infrastructure.Repositories;
+using AnalistaFinanziarioIA.Core.Interfaces;
+using AnalistaFinanziarioIA.Core.Services;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
-
-
-namespace AnalistaFinanziarioIA.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 public class PortafoglioController(
-    IPortafoglioRepository _repository,
-    ITitoloRepository _titoloRepository,
-    ITitoloService _titoloService,
-    IValidator<TransazioneInputDto> _validator,
-    PortafoglioService _portafoglioService) : ControllerBase
+    ITransazioneService _transazioneService,
+    PortafoglioService _portafoglioService,
+    IValidator<TransazioneInputDto> _validator) : ControllerBase
 {
-
     /// <summary>
-    /// Recupera la dashboard calcolata con totali convertiti e asset.
+    /// Dashboard con totali e asset convertiti in EUR.
     /// </summary>
     [HttpGet("dashboard/{utenteId}")]
     public async Task<IActionResult> GetDashboard(Guid utenteId)
     {
-        // 2. USIAMO IL SERVICE (che gestisce tassi di cambio e nomi corretti)
-        // Questo risolverà il problema del 404 e dei totali a 0
         var dashboard = await _portafoglioService.GetDashboardCompletaAsync(utenteId);
         return Ok(dashboard);
     }
 
+    /// <summary>
+    /// Registrazione di una nuova transazione (Acquisto/Vendita).
+    /// </summary>
     [HttpPost("transazione")]
     public async Task<IActionResult> RegistraOperazione([FromBody] TransazioneInputDto dto)
     {
-        // 1. Validazione (FluentValidation)
         var validationResult = await _validator.ValidateAsync(dto);
         if (!validationResult.IsValid)
-        {
-            // Restituisce un oggetto tipo { "Data": ["Messaggio 1"], "Quantita": ["Messaggio 2"] }
             return BadRequest(validationResult.ToDictionary());
-        }
 
         try
         {
-            // 2. Determiniamo l'ID del titolo (esistente o nuovo)
-            int idTitoloEffettivo;
-
-            if (dto.TitoloId.HasValue && dto.TitoloId.Value > 0)
-            {
-                idTitoloEffettivo = dto.TitoloId.Value;
-            }
-            else if (dto.TitoloLookup != null)
-            {
-                // Il titolo non ha ID, viene da Alpha Vantage. 
-                // Verifichiamo se esiste già per simbolo (magari aggiunto da un altro utente)
-                var titoloEsistente = await _titoloRepository.GetBySimboloAsync(dto.TitoloLookup.Simbolo);
-
-                if (titoloEsistente != null)
-                {
-                    idTitoloEffettivo = titoloEsistente.Id;
-                }
-                else
-                {
-                    // Dobbiamo crearlo (Censimento)
-                    var nuovoTitolo = new Titolo
-                    {
-                        Simbolo = dto.TitoloLookup.Simbolo,
-                        Nome = dto.TitoloLookup.Nome,
-                        Isin = dto.TitoloLookup.Isin,
-                        Valuta = dto.TitoloLookup.Valuta ?? "EUR", // Uso EUR come fallback
-                        DataCreazione = DateTime.Now,
-                        DataUltimoPrezzo = DateTime.Now,
-                        Mercato = dto.TitoloLookup.Mercato,
-                        Settore = dto.TitoloLookup.Settore ?? "Altro",
-                        UltimoPrezzo = dto.PrezzoUnitario
-                    };
-
-                    nuovoTitolo.Tipo = _titoloService.MappaTipoTitolo(dto.TitoloLookup.Tipo?.ToLower(), dto.TitoloLookup.Simbolo);
-
-                    // AddAsync deve salvare e restituire l'ID generato
-                    await _titoloRepository.AddAsync(nuovoTitolo);
-                    idTitoloEffettivo = nuovoTitolo.Id;
-                }
-            }
-            else
-            {
-                return BadRequest(new { Errore = "Nessun titolo selezionato correttamente." });
-            }
-
-            // 3. Creiamo l'entità Transazione usando i dati del DTO
-            var nuovaTransazione = new Transazione
-            {
-                Quantita = dto.Quantita,
-                PrezzoUnitario = dto.PrezzoUnitario,
-                Commissioni = dto.Commissioni,
-                Tasse = dto.Tasse,
-                Note = dto.Note,
-                Data = dto.Data ?? DateTime.UtcNow,
-                Tipo = Enum.TryParse<TipoTransazione>(dto.TipoOperazione, true, out var t) ? t : TipoTransazione.Acquisto
-                // Nota: UtenteId e TitoloId vengono gestiti dal repository sotto
-            };
-
-            // 4. Salvataggio finale
-            // Passiamo dto.UtenteId (che ora arriva nel Body) e idTitoloEffettivo (calcolato sopra)
-            var assetAggiornato = await _repository.AggiungiTransazioneAsync(nuovaTransazione, dto.UtenteId, idTitoloEffettivo);
-
-            return Ok(new
-            {
-                Messaggio = assetAggiornato == null ? "Posizione chiusa con successo" : "Operazione registrata con successo",
-                TitoloId = idTitoloEffettivo,
-                NuovaQuantita = assetAggiornato?.QuantitaTotale ?? 0, // Se null, restituisce 0
-                NuovoPrezzoMedio = assetAggiornato?.PrezzoMedioCarico ?? 0 // Se null, restituisce 0
-            });
+            var successo = await _transazioneService.RegistraOperazioneAsync(dto);
+            return Ok(new { Messaggio = "Operazione registrata con successo" });
         }
         catch (Exception ex)
         {
@@ -120,56 +42,25 @@ public class PortafoglioController(
         }
     }
 
+    /// <summary>
+    /// Storia delle transazioni raggruppata per Mese/Anno.
+    /// </summary>
     [HttpGet("utente/{utenteId}")]
     public async Task<ActionResult<IEnumerable<StoriaTransazioniDto>>> GetStoria(Guid utenteId, [FromQuery] string? search)
     {
-        var transazioni = await _repository.GetStoriaFiltrataAsync(utenteId, search);
-
-        var risultato = transazioni
-            .GroupBy(t => new { t.Data.Year, t.Data.Month })
-            .OrderByDescending(g => g.Key.Year).ThenByDescending(g => g.Key.Month)
-            .Select(g => new StoriaTransazioniDto
-            {
-                Periodo = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMMM yyyy"),
-                Movimenti = g.Select(t => new MovimentoDto
-                {
-                    Id = t.Id,
-                    GiornoMese = t.Data.ToString("dd.MM"),
-                    TitoloNome = t.AssetPortafoglio?.Titolo?.Nome ?? "N/A",
-                    Ticker = t.AssetPortafoglio?.Titolo?.Simbolo ?? "",
-                    Tipo = t.Tipo.ToString(),
-                    Descrizione = $"{(t.Tipo == TipoTransazione.Acquisto ? "Acquistato" : "Venduto")} x{t.Quantita:N0} a {t.PrezzoUnitario:N2} {t.AssetPortafoglio?.Titolo?.Valuta}",
-                    TotaleOperazione = t.Quantita * t.PrezzoUnitario,
-                    Valuta = t.AssetPortafoglio?.Titolo?.Valuta ?? "EUR",
-                    Icona = t.Tipo == TipoTransazione.Acquisto ? "in" : "out"
-                }).ToList()
-            }).ToList();
-
+        // La logica di GroupBy e Mapping la spostiamo nel PortafoglioService
+        var risultato = await _portafoglioService.GetStoriaRaggruppataAsync(utenteId, search);
         return Ok(risultato);
     }
 
+    /// <summary>
+    /// Lista degli asset attivi per l'utente (per dropdown o filtri).
+    /// </summary>
     [HttpGet("my-assets/{utenteId}")]
     public async Task<IActionResult> GetMyAssets(Guid utenteId, [FromQuery] string? query)
     {
-        // Recuperiamo gli asset attivi dell'utente (quantità > 0)
-        // Includiamo i dati del Titolo per avere Nome e Simbolo
-        var assets = await _repository.GetAssetsAttiviAsync(utenteId);
-
-        var risultati = assets
-            .Where(a => string.IsNullOrEmpty(query) ||
-                        a.Titolo.Nome.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                        a.Titolo.Simbolo.Contains(query, StringComparison.OrdinalIgnoreCase))
-            .Select(a => new {
-                // Fondamentale: qui passiamo il TitoloId reale
-                Id = a.TitoloId,
-                Simbolo = a.Titolo.Simbolo,
-                Nome = a.Titolo.Nome,
-                QuantitaDisponibile = a.QuantitaTotale,
-                Valuta = a.Titolo.Valuta,
-                PrezzoMedio = a.PrezzoMedioCarico
-            })
-            .ToList();
-
+        // Anche questa logica di filtro e proiezione va nel Service
+        var risultati = await _portafoglioService.GetAssetsFiltratiAsync(utenteId, query);
         return Ok(risultati);
     }
 }

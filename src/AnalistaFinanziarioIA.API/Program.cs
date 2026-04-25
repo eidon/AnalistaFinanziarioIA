@@ -41,6 +41,7 @@ builder.Services.AddScoped<IPortafoglioRepository, PortafoglioRepository>();
 // ─────────────────────────────────────────────
 builder.Services.AddScoped<IValutaService, ValutaService>();
 builder.Services.AddScoped<PortafoglioService>();
+builder.Services.AddScoped<ITransazioneService, TransazioneService>();
 
 builder.Services.AddScoped<IQuotazioneService>(sp =>
 {
