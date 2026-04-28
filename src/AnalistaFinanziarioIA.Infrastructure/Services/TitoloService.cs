@@ -31,7 +31,7 @@ namespace AnalistaFinanziarioIA.Infrastructure.Services
                             Nome = t.Name,
                             Valuta = t.Currency ?? "EUR",
                             Mercato = t.ExchangeShortName ?? t.StockExchange,
-                            Tipo = MappaTipoTitolo(t.Type, t.Symbol).ToString()
+                            Tipo = MappaTipoTitolo(t.Type, t.Symbol),
                         }));
                     }
                 }
@@ -62,7 +62,7 @@ namespace AnalistaFinanziarioIA.Infrastructure.Services
                                 Nome = q.TryGetProperty("longname", out var ln) ? (ln.GetString() ?? string.Empty) : (q.GetProperty("shortname").GetString() ?? string.Empty),
                                 Valuta = "EUR",
                                 Mercato = q.TryGetProperty("exchDisp", out var exch) ? (exch.GetString() ?? "Yahoo") : "Yahoo",
-                                Tipo = q.GetProperty("quoteType").GetString() == "ETF" ? "ETF" : "Azione"
+                                Tipo = q.GetProperty("quoteType").GetString() == "ETF" ? TipoTitolo.ETF : TipoTitolo.Azione,
                             });
                         }
                     }
@@ -97,7 +97,7 @@ namespace AnalistaFinanziarioIA.Infrastructure.Services
                         Valuta = p.Currency ?? "EUR",
                         Mercato = p.ExchangeShortName ?? p.Exchange ?? "N/A",
                         Settore = string.IsNullOrEmpty(p.Industry) ? p.Sector ?? string.Empty : $"{p.Sector} - {p.Industry}",
-                        Tipo = MappaTipoTitolo(p.Type, p.Symbol).ToString(),
+                        Tipo = MappaTipoTitolo(p.Type, p.Symbol),
                         PrezzoAttuale = p.Price
                     };
                 }
@@ -119,7 +119,7 @@ namespace AnalistaFinanziarioIA.Infrastructure.Services
                 ConfiguraUserAgent();
                 var risultatiIsin = await _httpClient.GetFromJsonAsync<List<FmpIsinResult>>(urlIsin);
 
-                if (risultatiIsin == null || !risultatiIsin.Any()) return new List<TitoloLookupDto>();
+                if (risultatiIsin == null || risultatiIsin.Count == 0) return new List<TitoloLookupDto>();
 
                 var listaDinamica = new List<TitoloLookupDto>();
 
@@ -137,7 +137,7 @@ namespace AnalistaFinanziarioIA.Infrastructure.Services
                             Isin = res.Isin,
                             Valuta = "EUR",
                             Mercato = "N/A",
-                            Tipo = "Azione"
+                            Tipo = TipoTitolo.Azione
                         });
                         continue;
                     }
@@ -152,7 +152,7 @@ namespace AnalistaFinanziarioIA.Infrastructure.Services
                         Isin = res.Isin,
                         Valuta = p?.Currency ?? "EUR",
                         Mercato = p?.ExchangeShortName ?? p?.Exchange ?? "N/A",
-                        Tipo = MappaTipoTitolo(p?.Type, res.Symbol).ToString()
+                        Tipo = MappaTipoTitolo(p?.Type, res.Symbol),
                     });
                 }
 

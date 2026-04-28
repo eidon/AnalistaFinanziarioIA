@@ -1,25 +1,16 @@
 ﻿using AnalistaFinanziarioIA.Core.Interfaces;
 using Microsoft.Extensions.Logging;
-using System.Net.Http;
 using System.Text.Json;
 
 
 namespace AnalistaFinanziarioIA.Infrastructure.Services;
 
-public class YahooFinanceService : IYahooFinanceService
+public class YahooFinanceService(ILogger<YahooFinanceService> _logger, HttpClient _httpClient) : IYahooFinanceService
 {
-    private readonly ILogger<YahooFinanceService> _logger;
-    private readonly HttpClient _httpClient;
 
-    public YahooFinanceService(ILogger<YahooFinanceService> logger, HttpClient httpClient)
+    public async Task<decimal> GetQuoteAsync(string simbolo)
     {
-        _logger = logger;
-        _httpClient = httpClient;
-    }
-
-    public async Task<decimal> GetQuoteAsync(string ticker)
-    {
-        string yahooTicker = string.Empty;
+        string yahooSimbol = string.Empty;
         try
         {
 
@@ -29,13 +20,13 @@ public class YahooFinanceService : IYahooFinanceService
                 // Aggiungi qui altri se necessario
             };
 
-            yahooTicker = mapping.TryGetValue(ticker, out var translated) ? translated : ticker;
+            yahooSimbol = mapping.TryGetValue(simbolo, out var translated) ? translated : simbolo;
 
             // Pulizia Ticker: rimuovi eventuali spazi bianchi
-            yahooTicker = yahooTicker.Trim().ToUpper();
+            yahooSimbol = yahooSimbol.Trim().ToUpper();
 
             // URL alternativo più robusto (query2 invece di query1)
-            string url = $"https://query2.finance.yahoo.com/v8/finance/chart/{yahooTicker}?interval=1m&range=1d";
+            string url = $"https://query2.finance.yahoo.com/v8/finance/chart/{yahooSimbol}?interval=1m&range=1d";
 
             var request = new HttpRequestMessage(HttpMethod.Get, url);
 
@@ -49,7 +40,7 @@ public class YahooFinanceService : IYahooFinanceService
 
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                _logger.LogWarning($"Ticker {yahooTicker} non trovato su Yahoo. Prova a cambiare suffisso nel DB.");
+                _logger.LogWarning("Simbolo {YahooTicker} non trovato su Yahoo. Prova a cambiare suffisso nel DB.", yahooSimbol);
                 return 0;
             }
 
@@ -61,12 +52,12 @@ public class YahooFinanceService : IYahooFinanceService
             var result = doc.RootElement.GetProperty("chart").GetProperty("result")[0];
             var price = result.GetProperty("meta").GetProperty("regularMarketPrice").GetDecimal();
 
-            _logger.LogInformation($"[SUCCESS] {yahooTicker}: {price}");
+            _logger.LogInformation("[SUCCESS] {YahooTicker}: {Price}", yahooSimbol, price);
             return price;
         }
         catch (Exception ex)
         {
-            _logger.LogError($"[ERROR] {yahooTicker}: {ex.Message}");
+            _logger.LogError("[ERROR] {YahooTicker}: {ErrorMessage}", yahooSimbol, ex.Message);
             return 0;
         }
     }

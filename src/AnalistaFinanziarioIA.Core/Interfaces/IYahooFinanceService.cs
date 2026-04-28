@@ -5,6 +5,6 @@
         /// <summary>
         /// Recupera il prezzo attuale per un determinato ticker.
         /// </summary>
-        Task<decimal> GetQuoteAsync(string ticker);
+        Task<decimal> GetQuoteAsync(string simbolo);
     }
 }

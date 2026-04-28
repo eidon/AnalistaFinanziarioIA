@@ -18,7 +18,7 @@
         /// </summary>
         public void ApplicaTransazione(Transazione t)
         {
-            if (t.Tipo == TipoTransazione.Acquisto)
+            if (t.TipoOperazione == TipoTransazione.Acquisto)
             {
                 // Calcolo del nuovo PMC (Prezzo Medio di Carico)
                 decimal costoTotalePrecedente = QuantitaTotale * PrezzoMedioCarico;
@@ -33,7 +33,7 @@
                     PrezzoMedioCarico = (costoTotalePrecedente + costoNuovoAcquisto) / QuantitaTotale;
                 }
             }
-            else if (t.Tipo == TipoTransazione.Vendita)
+            else if (t.TipoOperazione == TipoTransazione.Vendita)
             {
                 // Gestione Profitto/Perdita Realizzata (P&L)
                 // Si calcola sulla differenza tra prezzo di vendita (netto) e PMC attuale

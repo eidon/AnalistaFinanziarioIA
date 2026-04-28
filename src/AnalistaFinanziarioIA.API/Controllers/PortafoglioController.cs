@@ -4,6 +4,8 @@ using AnalistaFinanziarioIA.Core.Services;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 
+namespace AnalistaFinanziarioIA.API.Controllers;
+
 [ApiController]
 [Route("api/[controller]")]
 public class PortafoglioController(

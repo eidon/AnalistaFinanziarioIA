@@ -19,7 +19,7 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context, IValut
         var asset = await _context.AssetsPortafoglio
             .FirstOrDefaultAsync(a => a.UtenteId == utenteId && a.TitoloId == titoloId);
 
-        if (transazione.Tipo == TipoTransazione.Vendita && asset == null)
+        if (transazione.TipoOperazione == TipoTransazione.Vendita && asset == null)
             throw new Exception("Impossibile vendere un titolo che non è in portafoglio.");
 
         if (asset == null)
@@ -37,7 +37,7 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context, IValut
         }
 
         // 3. Validazione pre-vendita
-        if (transazione.Tipo == TipoTransazione.Vendita && asset.QuantitaTotale < transazione.Quantita)
+        if (transazione.TipoOperazione == TipoTransazione.Vendita && asset.QuantitaTotale < transazione.Quantita)
             throw new Exception("Quantità insufficiente per la vendita.");
 
         // 4. Logica finanziaria delegata al Modello di Dominio (DDD)
@@ -70,7 +70,7 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context, IValut
 
         if (asset != null)
         {
-            if (t.Tipo == TipoTransazione.Acquisto)
+            if (t.TipoOperazione == TipoTransazione.Acquisto)
                 asset.QuantitaTotale -= t.Quantita;
             else
                 asset.QuantitaTotale += t.Quantita;
@@ -100,7 +100,7 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context, IValut
         {
             decimal differenzaQuantita = input.Quantita - t.Quantita;
 
-            if (t.Tipo == TipoTransazione.Acquisto)
+            if (t.TipoOperazione == TipoTransazione.Acquisto)
                 asset.QuantitaTotale += differenzaQuantita;
             else
                 asset.QuantitaTotale -= differenzaQuantita;
@@ -130,8 +130,8 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context, IValut
         {
             var s = searchTerm.ToLower();
             query = query.Where(t =>
-                (t.AssetPortafoglio.Titolo.Nome != null && t.AssetPortafoglio.Titolo.Nome.ToLower().Contains(s)) ||
-                (t.AssetPortafoglio.Titolo.Simbolo != null && t.AssetPortafoglio.Titolo.Simbolo.ToLower().Contains(s)));
+                (t.AssetPortafoglio.Titolo.Nome != null && t.AssetPortafoglio.Titolo.Nome.Contains(s, StringComparison.CurrentCultureIgnoreCase)) ||
+                (t.AssetPortafoglio.Titolo.Simbolo != null && t.AssetPortafoglio.Titolo.Simbolo.Contains(s, StringComparison.CurrentCultureIgnoreCase)));
         }
 
         return await query
@@ -152,32 +152,34 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context, IValut
         foreach (var asset in assets)
         {
             var acquisti = asset.Transazioni
-                .Where(t => t.Tipo == TipoTransazione.Acquisto)
+                .Where(t => t.TipoOperazione == TipoTransazione.Acquisto)
                 .ToList();
 
             decimal pmcInEuro = 0;
-            if (acquisti.Any())
+            if (acquisti.Count != 0)
             {
-                decimal spesaTotaleEur = acquisti.Sum(t =>
-                    t.Quantita * _valutaService.ConvertiInEur(t.PrezzoUnitario, asset.Titolo?.Valuta ?? "EUR")
-                );
+                decimal spesaTotaleEur = 0;
+                foreach (var t in acquisti)
+                {
+                    spesaTotaleEur += t.Quantita * await _valutaService.ConvertiInEurAsync(t.PrezzoUnitario, asset.Titolo?.Valuta ?? "EUR");
+                }
                 decimal quantitaAcquistata = acquisti.Sum(t => t.Quantita);
                 pmcInEuro = quantitaAcquistata > 0 ? spesaTotaleEur / quantitaAcquistata : 0;
             }
 
             decimal prezzoGrezzo = (asset.Titolo?.UltimoPrezzo > 0) ? asset.Titolo.UltimoPrezzo : pmcInEuro;
-            decimal prezzoInEuro = _valutaService.ConvertiInEur(prezzoGrezzo, asset.Titolo?.Valuta ?? "EUR");
+            decimal prezzoInEuro = await _valutaService.ConvertiInEurAsync(prezzoGrezzo, asset.Titolo?.Valuta ?? "EUR");
 
             result.Add(new AssetDisplayDto
             {
                 AssetId = asset.Id,
-                TitoloNome = asset.Titolo?.Nome ?? "N/A",
-                Ticker = asset.Titolo?.Simbolo ?? "N/A",
+                Nome = asset.Titolo?.Nome ?? "N/A",
+                Simbolo = asset.Titolo?.Simbolo ?? "N/A",
                 Quantita = asset.QuantitaTotale,
                 Pmc = pmcInEuro,
                 PrezzoAttuale = prezzoInEuro,
                 Valuta = "EUR",
-                ProfittoRealizzatoTotale = _valutaService.ConvertiInEur(asset.ProfittoRealizzatoTotale, asset.Titolo?.Valuta ?? "EUR")
+                ProfittoRealizzatoTotale = await _valutaService.ConvertiInEurAsync(asset.ProfittoRealizzatoTotale, asset.Titolo?.Valuta ?? "EUR")
             });
         }
 
@@ -201,8 +203,8 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context, IValut
             .ToListAsync();
 
         return (
-            Commissioni: transazioni.Sum(t => _valutaService.ConvertiInEur(t.Commissioni, t.AssetPortafoglio.Titolo.Valuta)),
-            Tasse: transazioni.Sum(t => _valutaService.ConvertiInEur(t.Tasse, t.AssetPortafoglio.Titolo.Valuta))
+            Commissioni: (await Task.WhenAll(transazioni.Select(t => _valutaService.ConvertiInEurAsync(t.Commissioni, t.AssetPortafoglio.Titolo.Valuta)))).Sum(),
+            Tasse: (await Task.WhenAll(transazioni.Select(t => _valutaService.ConvertiInEurAsync(t.Tasse, t.AssetPortafoglio.Titolo.Valuta)))).Sum()
         );
     }
 }

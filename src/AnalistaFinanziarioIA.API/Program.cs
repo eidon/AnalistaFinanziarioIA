@@ -20,7 +20,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddHttpClient();
+
 
 // ─────────────────────────────────────────────
 // 2. DATABASE
@@ -39,7 +39,8 @@ builder.Services.AddScoped<IPortafoglioRepository, PortafoglioRepository>();
 // ─────────────────────────────────────────────
 // 4. SERVIZI DI BUSINESS LOGIC
 // ─────────────────────────────────────────────
-builder.Services.AddScoped<IValutaService, ValutaService>();
+builder.Services.AddHttpClient<IYahooFinanceService, YahooFinanceService>();
+builder.Services.AddHttpClient<IValutaService, ValutaService>();
 builder.Services.AddScoped<PortafoglioService>();
 builder.Services.AddScoped<ITransazioneService, TransazioneService>();
 
@@ -61,7 +62,6 @@ builder.Services.AddScoped<ITitoloService>(sp =>
     return new TitoloService(httpClient, apiKey);
 });
 
-builder.Services.AddScoped<IYahooFinanceService, YahooFinanceService>();
 
 // ─────────────────────────────────────────────
 // 5. VALIDATORI

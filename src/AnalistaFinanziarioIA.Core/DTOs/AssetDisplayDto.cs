@@ -3,8 +3,8 @@
     public class AssetDisplayDto
     {
         public int AssetId { get; set; }
-        public string TitoloNome { get; set; } = string.Empty;
-        public string Ticker { get; set; } = string.Empty;
+        public string Nome { get; set; } = string.Empty;
+        public string Simbolo { get; set; } = string.Empty;
         public decimal Quantita { get; set; }
         public decimal PrezzoAttuale { get; set; } // Recuperato da API o database
         public decimal Pmc { get; set; }           // Calcolato dinamicamente

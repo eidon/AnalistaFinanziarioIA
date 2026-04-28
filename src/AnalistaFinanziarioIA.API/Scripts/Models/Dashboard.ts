@@ -1,13 +1,17 @@
-﻿export interface IAssetDisplay {
+﻿import { TipoTitolo } from './Titolo.js'; 
+
+export interface IAssetDisplay {
     titoloId: number;
-    ticker: string;
-    titoloNome: string;
+    simbolo: string;
+    nome: string;
+    tipo: TipoTitolo;
     quantita: number;
     pmc: number;                    // Prezzo Medio di Carico
     prezzoAttuale: number;          // Prezzo di mercato sincronizzato
     valoreDiMercato: number;        // quantita * prezzoAttuale
     guadagnoAssoluto: number;       // (prezzoAttuale - pmc) * quantita
     percentualeRendimento: number;
+    valuta: string;
 }
 
 export interface IPerformanceStats {

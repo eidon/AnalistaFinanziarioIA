@@ -14,7 +14,7 @@ namespace AnalistaFinanziarioIA.Core.Services
             var tutteLePosizioni = await _repository.GetDashboardAssetsAsync(utenteId);
 
             // 2. Recuperiamo i costi vivi (Commissioni e Tasse)
-            var costiTransazioni = await _repository.GetTotaleCostiTransazioniAsync(utenteId);
+            var (Commissioni, Tasse) = await _repository.GetTotaleCostiTransazioniAsync(utenteId);
 
             decimal totaleValoreAttualeEur = 0;
             decimal totaleGuadagnoLatenteEur = 0;   // Guadagno Prezzo (Asset aperti)
@@ -24,17 +24,17 @@ namespace AnalistaFinanziarioIA.Core.Services
             foreach (var p in tutteLePosizioni)
             {
                 // Guadagno Realizzato: lo sommiamo sempre (anche se la posizione è chiusa)
-                totaleGuadagnoRealizzatoEur += _valutaService.ConvertiInEur(p.ProfittoRealizzatoTotale, p.Valuta);
+                totaleGuadagnoRealizzatoEur += await _valutaService.ConvertiInEurAsync(p.ProfittoRealizzatoTotale, p.Valuta);
 
                 // Se la posizione è aperta, calcoliamo i dati per il portafoglio attuale
                 if (p.Quantita > 0)
                 {
-                    totaleValoreAttualeEur += _valutaService.ConvertiInEur(p.ValoreDiMercato, p.Valuta);
-                    totaleGuadagnoLatenteEur += _valutaService.ConvertiInEur(p.GuadagnoAssoluto, p.Valuta);
+                    totaleValoreAttualeEur += await _valutaService.ConvertiInEurAsync(p.ValoreDiMercato, p.Valuta);
+                    totaleGuadagnoLatenteEur += await _valutaService.ConvertiInEurAsync(p.GuadagnoAssoluto, p.Valuta);
 
                     // Il capitale investito è: Quantità * Prezzo Medio di Carico
                     decimal costoCaricoOriginario = p.Quantita * p.Pmc;
-                    capitaleEffettivamenteSborsatoEur += _valutaService.ConvertiInEur(costoCaricoOriginario, p.Valuta);
+                    capitaleEffettivamenteSborsatoEur += await _valutaService.ConvertiInEurAsync(costoCaricoOriginario, p.Valuta);
                 }
             }
 
@@ -42,7 +42,7 @@ namespace AnalistaFinanziarioIA.Core.Services
             decimal profittoTotaleLordoEur = totaleGuadagnoLatenteEur + totaleGuadagnoRealizzatoEur;
 
             // Al netto dei costi (Commissioni e Tasse)
-            decimal totaleCostiEur = costiTransazioni.Commissioni + costiTransazioni.Tasse;
+            decimal totaleCostiEur = Commissioni + Tasse;
             decimal rendimentoNettoEur = profittoTotaleLordoEur - totaleCostiEur;
 
             // Filtriamo per la tabella (solo titoli con quantità > 0)
@@ -85,13 +85,13 @@ namespace AnalistaFinanziarioIA.Core.Services
                     {
                         Id = t.Id,
                         GiornoMese = t.Data.ToString("dd.MM"),
-                        TitoloNome = t.AssetPortafoglio?.Titolo?.Nome ?? "N/A",
-                        Ticker = t.AssetPortafoglio?.Titolo?.Simbolo ?? "",
-                        Tipo = t.Tipo.ToString(),
-                        Descrizione = $"{(t.Tipo == TipoTransazione.Acquisto ? "Acquistato" : "Venduto")} x{t.Quantita:N0} a {t.PrezzoUnitario:N2} {t.AssetPortafoglio?.Titolo?.Valuta}",
+                        Nome = t.AssetPortafoglio?.Titolo?.Nome ?? "N/A",
+                        Simbolo = t.AssetPortafoglio?.Titolo?.Simbolo ?? "",
+                        Tipo = t.TipoOperazione.ToString(),
+                        Descrizione = $"{(t.TipoOperazione == TipoTransazione.Acquisto ? "Acquistato" : "Venduto")} x{t.Quantita:N0} a {t.PrezzoUnitario:N2} {t.AssetPortafoglio?.Titolo?.Valuta}",
                         TotaleOperazione = t.Quantita * t.PrezzoUnitario,
                         Valuta = t.AssetPortafoglio?.Titolo?.Valuta ?? "EUR",
-                        Icona = t.Tipo == TipoTransazione.Acquisto ? "in" : "out"
+                        Icona = t.TipoOperazione == TipoTransazione.Acquisto ? "in" : "out"
                     }).ToList()
                 }).ToList();
         }
@@ -108,7 +108,7 @@ namespace AnalistaFinanziarioIA.Core.Services
                     Id = a.TitoloId, // ID reale del titolo per future operazioni
                     Simbolo = a.Titolo!.Simbolo,
                     Nome = a.Titolo.Nome,
-                    QuantitaDisponibile = a.QuantitaTotale,
+                    Quantita = a.QuantitaTotale,
                     Valuta = a.Titolo.Valuta,
                     PrezzoMedio = a.PrezzoMedioCarico
                 })

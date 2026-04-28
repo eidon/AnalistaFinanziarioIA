@@ -2,17 +2,9 @@ using AnalistaFinanziarioIA.Core.Interfaces;
 
 namespace AnalistaFinanziarioIA.API.BackgroundServices
 {
-    public class PrezzoAggiornamentoService : BackgroundService
+    public class PrezzoAggiornamentoService(IServiceProvider _services, ILogger<PrezzoAggiornamentoService> _logger) : BackgroundService
     {
-        private readonly IServiceProvider _services;
-        private readonly ILogger<PrezzoAggiornamentoService> _logger;
         private readonly TimeSpan _periodo = TimeSpan.FromMinutes(15);
-
-        public PrezzoAggiornamentoService(IServiceProvider services, ILogger<PrezzoAggiornamentoService> logger)
-        {
-            _services = services;
-            _logger = logger;
-        }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {

@@ -1,7 +1,8 @@
-namespace AnalistaFinanziarioIA.Core.Interfaces;
-
-public interface IValutaService
+namespace AnalistaFinanziarioIA.Core.Interfaces
 {
-    decimal GetTassoCambio(string da, string a);
-    decimal ConvertiInEur(decimal importo, string valutaOriginale);
+    public interface IValutaService
+    {
+        Task<decimal> GetTassoCambioAsync(string da, string a = "EUR");
+        Task<decimal> ConvertiInEurAsync(decimal importo, string valutaOriginale);
+    }
 }

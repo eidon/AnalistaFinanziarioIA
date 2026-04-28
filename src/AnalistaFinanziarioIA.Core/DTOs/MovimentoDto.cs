@@ -5,8 +5,8 @@
     {
         public int Id { get; set; }
         public string GiornoMese { get; set; } = string.Empty; // "10.04"
-        public string TitoloNome { get; set; } = string.Empty; // "Leonardo"
-        public string Ticker { get; set; } = string.Empty;     // "LDO"
+        public string Nome { get; set; } = string.Empty; // "Leonardo"
+        public string Simbolo { get; set; } = string.Empty;     // "LDO"
         public string Tipo { get; set; } = string.Empty;       // "Acquisto" o "Vendita"
         public string Descrizione { get; set; } = string.Empty; // "Acquistato x35 a 56,20 €"
         public decimal TotaleOperazione { get; set; }

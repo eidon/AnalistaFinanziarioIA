@@ -1,13 +1,6 @@
-﻿export interface ITitoloLookupDto {
-    simbolo: string;
-    nome: string;
-    isin?: string;
-    prezzoAttuale: number;
-    valuta: string;
-    settore?: string;
-    mercato?: string;
-    tipo?: string;
-}
+﻿import { ITitoloLookupDto } from './TitoloLookupDto.js';
+import { TipoOperazione } from './Titolo.js';
+
 
 export interface ITransazioneInputDto {
     utenteId: string;
@@ -19,16 +12,17 @@ export interface ITransazioneInputDto {
     tasse: number;
     note?: string;
     data: string; // Sarà il valore YYYY-MM-DD dell'input date
-    tipoOperazione: number; // 0 per Acquisto, 1 per Vendita
+    tipoOperazione: TipoOperazione; // 0 per Acquisto, 1 per Vendita
+    tassoCambio: number;
+    valuta: string;
 }
 
 export interface ITransazioneStorica {
     id: number;
     data: string;           // Formato ISO string dal DB
-    tipo: number;           // 0 = Acquisto, 1 = Vendita
-    tipoOperazione?: string; // "Acquisto" o "Vendita"
-    ticker: string;
-    titoloNome: string;
+    tipoOperazione: TipoOperazione; // "Acquisto" o "Vendita"
+    simbolo: string;
+    nome: string;
     quantita: number;
     prezzoUnitario: number;
     commissioni: number;

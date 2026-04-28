@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using AnalistaFinanziarioIA.Core.Models;
+using System.ComponentModel.DataAnnotations;
 
 namespace AnalistaFinanziarioIA.Core.DTOs
 {
@@ -17,6 +18,8 @@ namespace AnalistaFinanziarioIA.Core.DTOs
         [Range(0.01, double.MaxValue, ErrorMessage = "Il prezzo deve essere maggiore di zero")]
         public decimal PrezzoUnitario { get; set; }
 
+        public decimal TassoCambio { get; set; } = 1.0m;
+
         public decimal Commissioni { get; set; }
 
         public decimal Tasse { get; set; }
@@ -25,6 +28,6 @@ namespace AnalistaFinanziarioIA.Core.DTOs
 
         public DateTime? Data { get; set; }
 
-        public int TipoOperazione { get; set; }
+        public TipoTransazione TipoOperazione { get; set; }
     }
 }

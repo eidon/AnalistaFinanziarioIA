@@ -1,0 +1,544 @@
+﻿├── 📁 .config
+├── 📁 .github
+│   └── 📁 workflows
+├── 📁 sql
+└── 📁 src
+    ├── 📁 AnalistaFinanziarioIA.API
+    │   ├── 📁 BackgroundServices
+    │   │   ├── 🟦 PrezzoAggiornamentoService.cs
+    │   │   │       🔲 public class PrezzoAggiornamentoService(IServiceProvider _services, ILogger<PrezzoAggiornamentoService> _logger) : BackgroundService
+    │   │   │       🔧 private readonly TimeSpan _periodo
+    │   │   └── 🟦 SessionCleanupService.cs
+    │   │           🔧 private static readonly TimeSpan IntervalloCleanup
+    │   │           🔧 private static readonly TimeSpan TtlSessione
+    │   ├── 📁 Controllers
+    │   │   ├── 🟦 AnalisiController.cs
+    │   │   │       🏷️  [ApiController]
+    │   │   │       🏷️  [Route("api/titoli/{titoloId:int}/[controller]")]
+    │   │   │       🔲 public class AnalisiController : ControllerBase
+    │   │   │       🏷️  [HttpGet]
+    │   │   │       🏷️  [HttpGet("{id:int}")]
+    │   │   │       🏷️  [HttpPost]
+    │   │   │       🏷️  [HttpPut("{id:int}")]
+    │   │   │       🏷️  [HttpDelete("{id:int}")]
+    │   │   ├── 🟦 ChatController.cs
+    │   │   │       🏷️  [ApiController]
+    │   │   │       🏷️  [Route("api/[controller]")]
+    │   │   │       🔲 public class ChatController(
+    │   │   │       🔧 private const int SogliaSummarization
+    │   │   │       🔧 private const int MessaggiDaPreservare
+    │   │   │       🏷️  [HttpPost("chiedi")]
+    │   │   ├── 🟦 PortafoglioController.cs
+    │   │   │       🏷️  [ApiController]
+    │   │   │       🏷️  [Route("api/[controller]")]
+    │   │   │       🔲 public class PortafoglioController(
+    │   │   │       🏷️  [HttpGet("dashboard/{utenteId}")]
+    │   │   │       🏷️  [HttpPost("transazione")]
+    │   │   │       🏷️  [HttpGet("utente/{utenteId}")]
+    │   │   │       🏷️  [HttpGet("my-assets/{utenteId}")]
+    │   │   ├── 🟦 QuotazioniController.cs
+    │   │   │       🏷️  [ApiController]
+    │   │   │       🏷️  [Route("api/titoli/{titoloId:int}/[controller]")]
+    │   │   │       🔲 public class QuotazioniController(IQuotazioneRepository _quotazioneRepository, IQuotazioneService _quotazioneService) : ControllerBase
+    │   │   │       🏷️  [HttpGet]
+    │   │   │       🏷️  [HttpGet("periodo")]
+    │   │   │       🏷️  [HttpGet("ultima")]
+    │   │   │       🏷️  [HttpPost]
+    │   │   │       🏷️  [HttpPost("batch")]
+    │   │   │       🏷️  [HttpPost("aggiorna")]
+    │   │   ├── 🟦 TitoliController.cs
+    │   │   │       🏷️  [ApiController]
+    │   │   │       🏷️  [Route("api/[controller]")]
+    │   │   │       🔲 public class TitoliController : ControllerBase
+    │   │   │       🏷️  [HttpGet]
+    │   │   │       🏷️  [HttpGet("{id:int}")]
+    │   │   │       🏷️  [HttpGet("simbolo/{simbolo}")]
+    │   │   │       🏷️  [HttpPost]
+    │   │   │       🏷️  [HttpPut("{id:int}")]
+    │   │   │       🏷️  [HttpDelete("{id:int}")]
+    │   │   │       🏷️  [HttpGet("dettaglio-completo/{simbolo}")]
+    │   │   │       🏷️  [HttpGet("cerca")]
+    │   │   │       🏷️  [HttpGet]
+    │   │   │       🏷️  [Route("/api/titolo/cerca")]
+    │   │   │       🔧 public async Task<IActionResult
+    │   │   ├── 🟦 TransazioniController.cs
+    │   │   │       🏷️  [ApiController]
+    │   │   │       🏷️  [Route("api/[controller]")]
+    │   │   │       🔲 public class TransazioniController(IPortafoglioRepository _repository, ITransazioneService _transazioneService) : ControllerBase
+    │   │   │       🏷️  [HttpGet("utente/{utenteId}")]
+    │   │   │       🏷️  [HttpDelete("{id}")]
+    │   │   │       🏷️  [HttpPut("{id}")]
+    │   │   │       🏷️  [HttpPost("registra")]
+    │   │   │       🏷️  [HttpGet("{id}")]
+    │   │   └── 🟦 ValutaController.cs
+    │   │           🏷️  [ApiController]
+    │   │           🏷️  [Route("api/[controller]")]
+    │   │           🔲 public class ValutaController(IValutaService _valutaService) : ControllerBase
+    │   │           🏷️  [HttpGet("cambio")]
+    │   │           🔧 public async Task<IActionResult
+    │   ├── 📁 Plugins
+    │   │   ├── 🟦 MercatoPlugin.cs
+    │   │   │       🔲 public class MercatoPlugin(
+    │   │   │       🔧 private readonly string _apiKey
+    │   │   │       🔧 private readonly HttpClient _httpClient
+    │   │   │       🏷️  [KernelFunction("GetPrezzoAttuale")]
+    │   │   │       🏷️  [Description("Recupera il prezzo attuale di mercato di un titolo (es. AAPL o VWCE.DE) tramite il suo ticker.")]
+    │   │   │       🏷️  [KernelFunction("AggiornaPrezzoTitolo")]
+    │   │   │       🏷️  [Description("Aggiorna il prezzo di mercato (UltimoPrezzo) di un titolo nel database.")]
+    │   │   │       🏷️  [KernelFunction("GetTassoCambio")]
+    │   │   │       🏷️  [Description("Recupera il tasso di cambio attuale tra due valute (es. USD to EUR).")]
+    │   │   │       💜 public Task<decimal> GetTassoCambio(string da, string a)
+    │   │   │       🏷️  [KernelFunction("GetTassoCambioReale")]
+    │   │   │       🏷️  [Description("Recupera il tasso di cambio attuale da USD a EUR tramite API.")]
+    │   │   │       🏷️  [KernelFunction("ConvertiValuta")]
+    │   │   │       🏷️  [Description("Converte un importo da una valuta all'altra.")]
+    │   │   │       💜 public decimal ConvertiValuta(decimal importo, string da, string a)
+    │   │   ├── 🟦 PortafoglioPlugin.cs
+    │   │   │       🔲 public class PortafoglioPlugin(IPortafoglioRepository repository)
+    │   │   │       🏷️  [KernelFunction]
+    │   │   │       🏷️  [Description("Recupera la composizione del portafoglio, inclusi PMC (con tasse/commissioni) e note strategiche dell'utente.")]
+    │   │   └── 🟦 WebSearchPlugin.cs
+    │   │           🔲 public class WebSearchPlugin(string _apiKey)
+    │   │           🔧 private readonly HttpClient _httpClient
+    │   │           🏷️  [KernelFunction, Description("Cerca news finanziarie e informazioni aggiornate sul web.")]
+    │   ├── 📁 Properties
+    │   │   └── 📄 launchSettings.json
+    │   ├── 📁 Scripts
+    │   │   ├── 📁 Models
+    │   │   │   ├── 🟨 Dashboard.ts
+    │   │   │   │       🔲 export interface IAssetDisplay
+    │   │   │   │       🔧 titoloId: number
+    │   │   │   │       🔧 simbolo: string
+    │   │   │   │       🔧 nome: string
+    │   │   │   │       🔧 tipo: TipoTitolo
+    │   │   │   │       🔧 quantita: number
+    │   │   │   │       🔧 pmc: number;                    // Prezzo Medio di Carico
+    │   │   │   │       🔧 prezzoAttuale: number;          // Prezzo di mercato sincronizzato
+    │   │   │   │       🔧 valoreDiMercato: number;        // quantita * prezzoAttuale
+    │   │   │   │       🔧 guadagnoAssoluto: number;       // (prezzoAttuale - pmc) * quantita
+    │   │   │   │       🔧 percentualeRendimento: number
+    │   │   │   │       🔧 valuta: string
+    │   │   │   │       🔲 export interface IPerformanceStats
+    │   │   │   │       🔧 capitaleInvestito: number
+    │   │   │   │       🔧 costiTotali: number
+    │   │   │   │       🔧 guadagnoPrezzo: number;         // Profitto latente (asset ancora in possesso)
+    │   │   │   │       🔧 guadagnoRealizzato: number;     // Profitto da vendite concluse
+    │   │   │   │       🔲 export interface IPortafoglioDashboard
+    │   │   │   │       🔧 utenteId: string
+    │   │   │   │       🔧 assets: IAssetDisplay[]
+    │   │   │   │       🔧 totalePortafoglioEur: number
+    │   │   │   │       🔧 profittoTotaleEur: number;      // Somma di latente + realizzato
+    │   │   │   │       🔧 percentualeTotale: number
+    │   │   │   │       🔧 statistiche: IPerformanceStats
+    │   │   │   ├── 🟨 Titolo.ts
+    │   │   │   │       🔲 export enum TipoTitolo
+    │   │   │   │       🔲 export enum TipoOperazione
+    │   │   │   │       🔲 export interface ITitolo
+    │   │   │   │       🔧 id: number
+    │   │   │   │       🔧 simbolo: string
+    │   │   │   │       🔧 isin?: string
+    │   │   │   │       🔧 nome: string
+    │   │   │   │       🔧 settore?: string
+    │   │   │   │       🔧 mercato?: string
+    │   │   │   │       🔧 valuta: string
+    │   │   │   │       🔧 dataCreazione: string; // DateTime -> string (ISO)
+    │   │   │   │       🔧 tipo: TipoTitolo
+    │   │   │   │       🔧 ultimoPrezzo: number
+    │   │   │   │       🔧 dataUltimoPrezzo: string
+    │   │   │   ├── 🟨 TitoloLookupDto.ts
+    │   │   │   │       🔲 export interface ITitoloLookupDto
+    │   │   │   │       🔧 simbolo: string
+    │   │   │   │       🔧 nome: string
+    │   │   │   │       🔧 isin?: string
+    │   │   │   │       🔧 valuta: string
+    │   │   │   │       🔧 tipo: TipoTitolo
+    │   │   │   │       🔧 id?: number
+    │   │   │   │       🔧 mercato: string
+    │   │   │   │       🔧 settore: string
+    │   │   │   │       🔧 prezzoAttuale: number
+    │   │   │   │       🔧 giaPresenteNelDb: boolean
+    │   │   │   └── 🟨 Transazione.ts
+    │   │   │           🔲 export interface ITransazioneInputDto
+    │   │   │           🔧 utenteId: string
+    │   │   │           🔧 titoloId: number | null
+    │   │   │           🔧 titoloLookup: ITitoloLookupDto | null
+    │   │   │           🔧 quantita: number
+    │   │   │           🔧 prezzoUnitario: number
+    │   │   │           🔧 commissioni: number
+    │   │   │           🔧 tasse: number
+    │   │   │           🔧 note?: string
+    │   │   │           🔧 data: string; // Sarà il valore YYYY-MM-DD dell'input date
+    │   │   │           🔧 tipoOperazione: TipoOperazione; // 0 per Acquisto, 1 per Vendita
+    │   │   │           🔧 tassoCambio: number
+    │   │   │           🔧 valuta: string
+    │   │   │           🔲 export interface ITransazioneStorica
+    │   │   │           🔧 id: number
+    │   │   │           🔧 data: string;           // Formato ISO string dal DB
+    │   │   │           🔧 tipoOperazione: TipoOperazione; // "Acquisto" o "Vendita"
+    │   │   │           🔧 simbolo: string
+    │   │   │           🔧 nome: string
+    │   │   │           🔧 quantita: number
+    │   │   │           🔧 prezzoUnitario: number
+    │   │   │           🔧 commissioni: number
+    │   │   │           🔧 tasse: number
+    │   │   │           🔧 note: string
+    │   │   └── 📁 Modules
+    │   │       └── 🟨 Portafoglio.ts
+    │   │               🔧 minimumFractionDigits: 2,
+    │   │               🔧 maximumFractionDigits: 2
+    │   │               🔧 utenteId: (window as any).UTENTE_ID,
+    │   │               🔧 titoloId: titoloId,
+    │   │               🔧 titoloLookup: titoloLookup,
+    │   │               🔧 tipoOperazione: parseInt((document.getElementById('m-tipo-operazione') as HTMLInputElement).value),
+    │   │               🔧 quantita: getFloat('m-quantita'),
+    │   │               🔧 prezzoUnitario: getFloat('m-prezzo'),
+    │   │               🔧 tassoCambio: tassoCambio,
+    │   │               🔧 valuta: valuta,
+    │   │               🔧 commissioni: getFloat('m-commissioni'),
+    │   │               🔧 tasse: getFloat('m-tasse'),
+    │   │               🔧 note: (document.getElementById('m-note') as HTMLInputElement | null)?.value || "",
+    │   │               🔧 data: dataEl?.value || new Date().toISOString().split('T')[0]
+    │   │               💜 alert()
+    │   │               🔧 method: metodo,
+    │   │               🔧 headers: { 'Content-Type': 'application/json' },
+    │   │               🔧 body: JSON.stringify(transazioneDto)
+    │   │               💜 gestisciErroreServer()
+    │   │               💜 alert()
+    │   │               🔧 method: 'DELETE'
+    │   │               💜 alert()
+    │   │               💜 setTipoOperazione()
+    │   │               💜 alert()
+    │   │               💜 fetch()
+    │   │               💜 fetch()
+    │   │               💜 aggiornaHeader()
+    │   │               💜 renderizzaTabellaAssets()
+    │   │               💜 applicaFiltriStoria()
+    │   │               💜 function aggiornaHeader()
+    │   │               💜 function renderizzaTabellaAssets()
+    │   │               💜 function renderizzaTabellaStoria()
+    │   │               💜 renderizzaTabellaStoria()
+    │   │               💜 renderizzaSuggerimenti()
+    │   │               💜 clearTimeout()
+    │   │               💜 renderizzaSuggerimenti()
+    │   │               💜 function renderizzaSuggerimenti()
+    │   │               💜 appendMessage()
+    │   │               💜 showLoader()
+    │   │               🔧 method: 'POST',
+    │   │               🔧 headers: {
+    │   │               🔧 body: JSON.stringify(domanda)
+    │   │               💜 removeLoader()
+    │   │               💜 appendMessage()
+    │   │               💜 removeLoader()
+    │   │               💜 appendMessage()
+    │   │               💜 function showLoader()
+    │   │               💜 function removeLoader()
+    │   │               💜 alert()
+    │   │               💜 alert()
+    │   │               💜 applicaFiltriStoria()
+    │   │               💜 applicaFiltriStoria()
+    │   ├── 📁 Services
+    │   │   ├── 🟦 IChatSessionService.cs
+    │   │   │       🔲 public interface IChatSessionService
+    │   │   └── 🟦 InMemoryChatSessionService.cs
+    │   │           💜 private record SessioneChat(ChatHistory History, DateTime UltimoAccesso);
+    │   │           🔧 private readonly ConcurrentDictionary<Guid, SessioneChat
+    │   │           🔧 private readonly ConcurrentDictionary<Guid, SemaphoreSlim
+    │   │           🔧 public async Task AcquireLockAsync(Guid utenteId, CancellationToken ct
+    │   │           💜 public void ReleaseLock(Guid utenteId)
+    │   │           💜 public Task<ChatHistory> GetOrCreateHistoryAsync(Guid utenteId, Func<ChatHistory> factory)
+    │   │           💜 public Task SaveHistoryAsync(Guid utenteId, ChatHistory history)
+    │   │           💜 public void PulisciSessioniScadute(TimeSpan ttl)
+    │   ├── 📁 wwwroot
+    │   │   └── 📄 index.html
+    │   ├── 📄 appsettings.Development.json
+    │   ├── 📄 appsettings.json
+    │   ├── 🟦 Program.cs
+    │   └── 📄 tsconfig.json
+    ├── 📁 AnalistaFinanziarioIA.Core
+    │   ├── 📁 DTOs
+    │   │   ├── 🟦 AlphaVantageDto.cs
+    │   │   │       🔲 public class AlphaVantageResponse
+    │   │   │       🏷️  [JsonPropertyName("Global Quote")]
+    │   │   │       🔧 public GlobalQuote? GlobalQuote
+    │   │   │       🔲 public class GlobalQuote
+    │   │   │       🏷️  [JsonPropertyName("01. symbol")]
+    │   │   │       🔧 public string Symbol
+    │   │   │       🏷️  [JsonPropertyName("05. price")]
+    │   │   │       🔧 public string PriceString
+    │   │   │       🔧 public decimal Price
+    │   │   │       🔲 public class AlphaVantageSearchResponse
+    │   │   │       🏷️  [JsonPropertyName("bestMatches")]
+    │   │   │       🔧 public List<AlphaMatchDto
+    │   │   │       🔲 public class AlphaMatchDto
+    │   │   │       🏷️  [JsonPropertyName("1. symbol")]
+    │   │   │       🔧 public string Symbol
+    │   │   │       🏷️  [JsonPropertyName("2. name")]
+    │   │   │       🔧 public string Name
+    │   │   │       🏷️  [JsonPropertyName("3. type")]
+    │   │   │       🔧 public string Type
+    │   │   │       🏷️  [JsonPropertyName("4. region")]
+    │   │   │       🔧 public string Region
+    │   │   │       🏷️  [JsonPropertyName("8. currency")]
+    │   │   │       🔧 public string Currency
+    │   │   ├── 🟦 AnalisiCreateDto.cs
+    │   │   │       🔲 public class AnalisiCreateDto
+    │   │   │       🏷️  [Required(ErrorMessage = "Il risultato dell'analisi è obbligatorio")]
+    │   │   │       🏷️  [MinLength(10, ErrorMessage = "L'analisi deve essere più dettagliata")]
+    │   │   │       🔧 public string Risultato
+    │   │   │       🏷️  [Range(-100, 10000)]
+    │   │   │       🔧 public decimal PrezzoTarget
+    │   │   │       🏷️  [Required]
+    │   │   │       🔧 public string Raccomandazione
+    │   │   │       🔧 public string? Note
+    │   │   ├── 🟦 AnalisiUpdateDto.cs
+    │   │   │       🔲 public class AnalisiUpdateDto : AnalisiCreateDto
+    │   │   ├── 🟦 AssetDisplayDto.cs
+    │   │   │       🔲 public class AssetDisplayDto
+    │   │   │       🔧 public int AssetId
+    │   │   │       🔧 public string Nome
+    │   │   │       🔧 public string Simbolo
+    │   │   │       🔧 public decimal Quantita
+    │   │   │       🔧 public decimal PrezzoAttuale
+    │   │   │       🔧 public decimal Pmc
+    │   │   │       🔧 public string Valuta
+    │   │   │       🔧 public decimal ValoreDiMercato
+    │   │   │       🔧 public decimal InvestitoTotale
+    │   │   │       🔧 public decimal GuadagnoAssoluto
+    │   │   │       🔧 public decimal GuadagnoPercentuale
+    │   │   │       🔧 public decimal ProfittoRealizzatoTotale
+    │   │   ├── 🟦 AssetPerformanceDTO.cs
+    │   │   │       🔲 public class AssetPerformanceDTO
+    │   │   │       🔧 public int TitoloId
+    │   │   │       🔧 public decimal QuantitaPosseduta
+    │   │   │       🔧 public decimal PrezzoMedioCarico
+    │   │   │       🔧 public decimal PrezzoCorrente
+    │   │   │       🔧 public decimal ValoreAttuale
+    │   │   │       🔧 public decimal Profitto
+    │   │   ├── 🟦 MovimentoDto.cs
+    │   │   │       🔲 public class MovimentoDto
+    │   │   │       🔧 public int Id
+    │   │   │       🔧 public string GiornoMese
+    │   │   │       🔧 public string Nome
+    │   │   │       🔧 public string Simbolo
+    │   │   │       🔧 public string Tipo
+    │   │   │       🔧 public string Descrizione
+    │   │   │       🔧 public decimal TotaleOperazione
+    │   │   │       🔧 public string Valuta
+    │   │   │       🔧 public string Icona
+    │   │   │       🔲 public class StoriaTransazioniDto
+    │   │   │       🔧 public string Periodo
+    │   │   │       🔧 public List<MovimentoDto
+    │   │   ├── 🟦 PortafoglioDashboardDTO.cs
+    │   │   │       🔲 public class PortafoglioDashboardDTO
+    │   │   │       🔧 public decimal ValoreTotale
+    │   │   │       🔧 public decimal ProfittoTotale
+    │   │   │       🔧 public decimal ProfittoPercentuale
+    │   │   │       🔧 public List<AssetPerformanceDTO
+    │   │   ├── 🟦 RegistraTransazioneDto.cs
+    │   │   │       🔲 public class RegistraTransazioneDto
+    │   │   │       🔧 public Guid UtenteId
+    │   │   │       🔧 public int? TitoloId
+    │   │   │       🔧 public TitoloLookupDto? TitoloLookup
+    │   │   │       🔧 public decimal Quantita
+    │   │   │       🔧 public decimal PrezzoUnitario
+    │   │   │       🔧 public decimal Commissioni
+    │   │   │       🔧 public decimal Tasse
+    │   │   │       🔧 public string? Note
+    │   │   │       🔧 public DateTime Data
+    │   │   │       🔧 public string TipoOperazione
+    │   │   ├── 🟦 TitoloBaseDto.cs
+    │   │   │       🔧 public string Simbolo
+    │   │   │       🔧 public string Nome
+    │   │   │       🔧 public TipoTitolo Tipo
+    │   │   │       🔧 public string Valuta
+    │   │   │       🔧 public string? Isin
+    │   │   ├── 🟦 TitoloCreateDto.cs
+    │   │   │       🔲 public class TitoloCreateDto : TitoloBaseDto
+    │   │   │       🏷️  [Required(ErrorMessage = "Il Simbolo (Ticker) è obbligatorio")]
+    │   │   │       🏷️  [MaxLength(10)]
+    │   │   │       🔧 public new string Simbolo
+    │   │   │       🏷️  [Required(ErrorMessage = "Il nome dell'azienda è obbligatorio")]
+    │   │   │       🏷️  [MaxLength(100)]
+    │   │   │       🔧 public new string Nome
+    │   │   │       🏷️  [Required]
+    │   │   │       🔧 public new string Isin
+    │   │   │       🏷️  [Required]
+    │   │   │       🔧 public new string Valuta
+    │   │   │       🔧 public string? Mercato
+    │   │   │       🔧 public string? Settore
+    │   │   ├── 🟦 TitoloLookupDto.cs
+    │   │   │       🔲 public class TitoloLookupDto : TitoloBaseDto
+    │   │   │       🔧 public int? Id
+    │   │   │       🔧 public string Mercato
+    │   │   │       🔧 public string Settore
+    │   │   │       🔧 public decimal PrezzoAttuale
+    │   │   │       🔧 public bool GiaPresenteNelDb
+    │   │   ├── 🟦 TransazioneInputDto.cs
+    │   │   │       🔲 public class TransazioneInputDto
+    │   │   │       🏷️  [Required]
+    │   │   │       🔧 public Guid UtenteId
+    │   │   │       🔧 public int? TitoloId
+    │   │   │       🔧 public TitoloLookupDto? TitoloLookup
+    │   │   │       🏷️  [Range(0.00001, double.MaxValue, ErrorMessage = "La quantità deve essere maggiore di zero")]
+    │   │   │       🔧 public decimal Quantita
+    │   │   │       🏷️  [Range(0.01, double.MaxValue, ErrorMessage = "Il prezzo deve essere maggiore di zero")]
+    │   │   │       🔧 public decimal PrezzoUnitario
+    │   │   │       🔧 public decimal TassoCambio
+    │   │   │       🔧 public decimal Commissioni
+    │   │   │       🔧 public decimal Tasse
+    │   │   │       🔧 public string? Note
+    │   │   │       🔧 public DateTime? Data
+    │   │   │       🔧 public TipoTransazione TipoOperazione
+    │   │   └── 🟦 TransazioneStoricaDto.cs
+    │   │           🔲 public class TransazioneStoricaDto : TransazioneInputDto
+    │   │           🔧 public int Id
+    │   │           🔧 public string Nome
+    │   │           🔧 public string Simbolo
+    │   ├── 📁 Interfaces
+    │   │   ├── 🟦 IAnalisiRepository.cs
+    │   │   │       🔲 public interface IAnalisiRepository
+    │   │   ├── 🟦 IPortafoglioRepository.cs
+    │   │   │       🔲 public interface IPortafoglioRepository
+    │   │   ├── 🟦 IQuotazioneRepository.cs
+    │   │   │       🔲 public interface IQuotazioneRepository
+    │   │   ├── 🟦 IQuotazioneService.cs
+    │   │   │       🔲 public interface IQuotazioneService
+    │   │   ├── 🟦 ITitoloRepository.cs
+    │   │   │       🔲 public interface ITitoloRepository
+    │   │   ├── 🟦 ITitoloService.cs
+    │   │   │       🔲 public interface ITitoloService
+    │   │   ├── 🟦 ITransazioneService.cs
+    │   │   │       🔲 public interface ITransazioneService
+    │   │   ├── 🟦 IValutaService.cs
+    │   │   │       🔲 public interface IValutaService
+    │   │   └── 🟦 IYahooFinanceService.cs
+    │   │           🔲 public interface IYahooFinanceService
+    │   ├── 📁 Models
+    │   │   ├── 🟦 AnalisiFinanziaria.cs
+    │   │   │       🔲 public class AnalisiFinanziaria
+    │   │   │       🔧 public int Id
+    │   │   │       🔧 public int TitoloId
+    │   │   │       🔧 public DateTime DataAnalisi
+    │   │   │       🔧 public string TipoAnalisi
+    │   │   │       🔧 public string Risultato
+    │   │   │       🔧 public string? Note
+    │   │   │       🔧 public decimal? PrezzoTarget
+    │   │   │       🔧 public string Raccomandazione
+    │   │   │       🔧 public Titolo Titolo
+    │   │   ├── 🟦 AssetPortafoglio.cs
+    │   │   │       🔲 public class AssetPortafoglio
+    │   │   │       🔧 public int Id
+    │   │   │       🔧 public Guid UtenteId
+    │   │   │       🔧 public int TitoloId
+    │   │   │       🔧 public Titolo? Titolo
+    │   │   │       🔧 public decimal QuantitaTotale
+    │   │   │       🔧 public decimal PrezzoMedioCarico
+    │   │   │       🔧 public decimal ProfittoRealizzatoTotale
+    │   │   │       🔧 public ICollection<Transazione
+    │   │   │       🔧 public ICollection<Dividendo
+    │   │   │       💜 public void ApplicaTransazione(Transazione t)
+    │   │   ├── 🟦 Dividendo.cs
+    │   │   │       🔲 public class Dividendo
+    │   │   │       🔧 public int Id
+    │   │   │       🔧 public int AssetPortafoglioId
+    │   │   │       🔧 public decimal ImportoLordo
+    │   │   │       🔧 public decimal TasseTrattenute
+    │   │   │       🔧 public string Valuta
+    │   │   │       🔧 public DateTime DataPagamento
+    │   │   ├── 🟦 QuotazioneStorica.cs
+    │   │   │       🔲 public class QuotazioneStorica
+    │   │   │       🔧 public int Id
+    │   │   │       🔧 public int TitoloId
+    │   │   │       🔧 public DateTime Data
+    │   │   │       🔧 public decimal PrezzoApertura
+    │   │   │       🔧 public decimal PrezzoChiusura
+    │   │   │       🔧 public decimal PrezzoMassimo
+    │   │   │       🔧 public decimal PrezzoMinimo
+    │   │   │       🔧 public long Volume
+    │   │   │       🔧 public Titolo Titolo
+    │   │   ├── 🟦 Titolo.cs
+    │   │   │       🔲 public enum TipoTitolo
+    │   │   │       🔲 public class Titolo
+    │   │   │       🔧 public int Id
+    │   │   │       🔧 public string Simbolo
+    │   │   │       🔧 public string? Isin
+    │   │   │       🔧 public string Nome
+    │   │   │       🔧 public string? Settore
+    │   │   │       🔧 public string? Mercato
+    │   │   │       🔧 public string Valuta
+    │   │   │       🔧 public DateTime DataCreazione
+    │   │   │       🔧 public TipoTitolo Tipo
+    │   │   │       🔧 public decimal UltimoPrezzo
+    │   │   │       🔧 public DateTime DataUltimoPrezzo
+    │   │   │       🔧 public ICollection<QuotazioneStorica
+    │   │   │       🔧 public ICollection<AnalisiFinanziaria
+    │   │   ├── 🟦 Transazione.cs
+    │   │   │       🔲 public enum TipoTransazione
+    │   │   │       🔲 public class Transazione
+    │   │   │       🔧 public int Id
+    │   │   │       🔧 public int AssetPortafoglioId
+    │   │   │       🔧 public TipoTransazione TipoOperazione
+    │   │   │       🔧 public decimal Quantita
+    │   │   │       🔧 public decimal PrezzoUnitario
+    │   │   │       🔧 public decimal Commissioni
+    │   │   │       🔧 public decimal Tasse
+    │   │   │       🔧 public string Note
+    │   │   │       🔧 public decimal TassoCambio
+    │   │   │       🔧 public DateTime Data
+    │   │   │       🔧 public virtual AssetPortafoglio AssetPortafoglio
+    │   │   └── 🟦 Utente.cs
+    │   │           🔲 public class Utente
+    │   │           🔧 public Guid Id
+    │   │           🔧 public string Username
+    │   │           🔧 public string ValutaBase
+    │   │           🔧 public ICollection<AssetPortafoglio
+    │   ├── 📁 Services
+    │   │   ├── 🟦 PortafoglioService.cs
+    │   │   │       🔲 public class PortafoglioService(
+    │   │   ├── 🟦 QuotazioneService.cs
+    │   │   │       🔲 public class QuotazioneService(HttpClient _httpClient, IQuotazioneRepository _repository, ITitoloRepository _titoloRepository, string apiKey) : IQuotazioneService
+    │   │   └── 🟦 TransazioneService.cs
+    │   │           🔲 public class TransazioneService(
+    │   │           💜 private Transazione MappaTransazione(TransazioneInputDto dto)
+    │   └── 📁 Validators
+    │       ├── 🟦 TitoloCreateValidator.cs
+    │       │       🔲 public class TitoloCreateValidator : AbstractValidator<TitoloCreateDto>
+    │       └── 🟦 TransazioneInputValidator.cs
+    │               🔲 public class TransazioneInputValidator : AbstractValidator<TransazioneInputDto>
+    └── 📁 AnalistaFinanziarioIA.Infrastructure
+        ├── 📁 Data
+        │   └── 🟦 AnalistaFinanziarioDbContext.cs
+        │           🔲 public class AnalistaFinanziarioDbContext : DbContext
+        │           🔧 public DbSet<Titolo
+        │           🔧 public DbSet<QuotazioneStorica
+        │           🔧 public DbSet<AnalisiFinanziaria
+        │           🔧 public DbSet<Utente
+        │           🔧 public DbSet<AssetPortafoglio
+        │           🔧 public DbSet<Transazione
+        │           🔧 public DbSet<Dividendo
+        ├── 📁 Repositories
+        │   ├── 🟦 AnalisiRepository.cs
+        │   │       🔲 public class AnalisiRepository : IAnalisiRepository
+        │   ├── 🟦 PortafoglioRepository.cs
+        │   │       🔲 public class PortafoglioRepository(AnalistaFinanziarioDbContext _context, IValutaService _valutaService) : IPortafoglioRepository
+        │   ├── 🟦 QuotazioneRepository.cs
+        │   │       🔲 public class QuotazioneRepository : IQuotazioneRepository
+        │   └── 🟦 TitoloRepository.cs
+        │           🔲 public class TitoloRepository : ITitoloRepository
+        │           🔧 public async Task<IEnumerable<Titolo
+        └── 📁 Services
+            ├── 🟦 TitoloService.cs
+            │       🔲 public class TitoloService(HttpClient _httpClient, string apiKey) : ITitoloService
+            │       💜 public TipoTitolo MappaTipoTitolo(string? fmpType, string? simbolo)
+            │       💜 private void ConfiguraUserAgent()
+            │       🔲 public class FmpFullProfile
+            │       🔲 public class FmpSearchResult
+            │       🔲 public class FmpIsinResult
+            ├── 🟦 ValutaService.cs
+            │       🔲 public class ValutaService(HttpClient _httpClient, IYahooFinanceService _yahooService) : IValutaService
+            │       🔧 private readonly Dictionary<string, decimal
+            │       🔧 public async Task<decimal
+            │       🔲 internal class FrankfurterResponse
+            │       🔧 public Dictionary<string, decimal
+            └── 🟦 YahooFinanceService.cs
+                    🔲 public class YahooFinanceService(ILogger<YahooFinanceService> _logger, HttpClient _httpClient) : IYahooFinanceService
