@@ -28,4 +28,5 @@ export interface ITransazioneStorica {
     commissioni: number;
     tasse: number;
     note: string;
+    valuta: string;
 }

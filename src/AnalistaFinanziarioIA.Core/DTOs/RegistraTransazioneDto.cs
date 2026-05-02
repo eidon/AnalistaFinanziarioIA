@@ -1,4 +1,5 @@
-﻿using System;
+﻿using AnalistaFinanziarioIA.Core.Models;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -22,6 +23,6 @@ namespace AnalistaFinanziarioIA.Core.DTOs
         public DateTime Data { get; set; }
 
         // Se vuoi gestire Acquisto/Vendita dalla modale, aggiungi anche questo
-        public string TipoOperazione { get; set; } = "Acquisto";
+        public TipoTransazione TipoOperazione { get; set; } = TipoTransazione.Acquisto;
     }
 }

@@ -15,19 +15,19 @@ namespace AnalistaFinanziarioIA.API.Controllers
         {
             var storia = await _repository.GetStoriaFiltrataAsync(utenteId, search);
 
-            var risultato = storia.Select(t => new TransazioneStoricaDto
-            {
-                Id = t.Id,
-                Data = t.Data,
-                Quantita = t.Quantita,
-                PrezzoUnitario = t.PrezzoUnitario,
-                Note = t.Note ?? "",
-                Nome = t.AssetPortafoglio?.Titolo?.Nome ?? "N/A",
-                Simbolo = t.AssetPortafoglio?.Titolo?.Simbolo ?? "N/A",
-                TipoOperazione = t.TipoOperazione // Assumendo che il campo EF si chiami così ora
-            }).ToList();
+            //var risultato = storia.Select(t => new TransazioneStoricaDto
+            //{
+            //    Id = t.Id,
+            //    Data = t.Data,
+            //    Quantita = t.Quantita,
+            //    PrezzoUnitario = t.PrezzoUnitario,
+            //    Note = t.Note ?? "",
+            //    Nome = t.AssetPortafoglio?.Titolo?.Nome ?? "N/A",
+            //    Simbolo = t.AssetPortafoglio?.Titolo?.Simbolo ?? "N/A",
+            //    TipoOperazione = t.TipoOperazione // Assumendo che il campo EF si chiami così ora
+            //}).ToList();
 
-            return Ok(risultato);
+            return Ok(storia);
         }
 
         // ELIMINA: Fondamentale per correggere errori
@@ -50,7 +50,7 @@ namespace AnalistaFinanziarioIA.API.Controllers
                 Commissioni = dto.Commissioni,
                 Tasse = dto.Tasse,
                 Note = dto.Note ?? "",
-                Data = dto.Data
+                Data = dto.Data,
             };
 
             var successo = await _repository.AggiornaTransazioneAsync(id, transazioneUpdate);
@@ -80,7 +80,7 @@ namespace AnalistaFinanziarioIA.API.Controllers
                     Note = dto.Note,
                     Data = dto.Data,
                     TassoCambio = 1.0m, // O il valore se presente nel dto della dashboard
-                    TipoOperazione = Enum.TryParse<TipoTransazione>(dto.TipoOperazione, out var tipo) ? tipo : TipoTransazione.Acquisto
+                    TipoOperazione = dto.TipoOperazione, // Enum.TryParse<TipoTransazione>(dto.TipoOperazione, out var tipo) ? tipo : TipoTransazione.Acquisto
                 };
 
                 var successo = await _transazioneService.RegistraOperazioneAsync(inputDto);

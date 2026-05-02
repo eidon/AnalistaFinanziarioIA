@@ -79,7 +79,6 @@
     │   ├── 📁 Plugins
     │   │   ├── 🟦 MercatoPlugin.cs
     │   │   │       🔲 public class MercatoPlugin(
-    │   │   │       🔧 private readonly string _apiKey
     │   │   │       🔧 private readonly HttpClient _httpClient
     │   │   │       🏷️  [KernelFunction("GetPrezzoAttuale")]
     │   │   │       🏷️  [Description("Recupera il prezzo attuale di mercato di un titolo (es. AAPL o VWCE.DE) tramite il suo ticker.")]
@@ -98,8 +97,7 @@
     │   │   │       🏷️  [KernelFunction]
     │   │   │       🏷️  [Description("Recupera la composizione del portafoglio, inclusi PMC (con tasse/commissioni) e note strategiche dell'utente.")]
     │   │   └── 🟦 WebSearchPlugin.cs
-    │   │           🔲 public class WebSearchPlugin(string _apiKey)
-    │   │           🔧 private readonly HttpClient _httpClient
+    │   │           🔲 public class WebSearchPlugin(string _apiKey, HttpClient _httpClient)
     │   │           🏷️  [KernelFunction, Description("Cerca news finanziarie e informazioni aggiornate sul web.")]
     │   ├── 📁 Properties
     │   │   └── 📄 launchSettings.json
@@ -182,6 +180,7 @@
     │   │   │           🔧 commissioni: number
     │   │   │           🔧 tasse: number
     │   │   │           🔧 note: string
+    │   │   │           🔧 valuta: string
     │   │   └── 📁 Modules
     │   │       └── 🟨 Portafoglio.ts
     │   │               🔧 minimumFractionDigits: 2,
@@ -252,6 +251,7 @@
     │   │   └── 📄 index.html
     │   ├── 📄 appsettings.Development.json
     │   ├── 📄 appsettings.json
+    │   ├── 📄 appsettings.Production.json
     │   ├── 🟦 Program.cs
     │   └── 📄 tsconfig.json
     ├── 📁 AnalistaFinanziarioIA.Core
@@ -394,6 +394,7 @@
     │   │           🔧 public int Id
     │   │           🔧 public string Nome
     │   │           🔧 public string Simbolo
+    │   │           🔧 public string Valuta
     │   ├── 📁 Interfaces
     │   │   ├── 🟦 IAnalisiRepository.cs
     │   │   │       🔲 public interface IAnalisiRepository

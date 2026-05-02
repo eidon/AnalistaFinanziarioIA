@@ -2,6 +2,7 @@
 import { ITransazioneStorica, ITransazioneInputDto } from '../Models/Transazione.js';
 import { TipoOperazione, TipoTitolo } from '../Models/Titolo.js';
 import { ITitoloLookupDto } from '../Models/TitoloLookupDto.js';
+import { MarketChartModule } from '../Modules/market-charts.js';
 
 // Dichiariamo UTENTE_ID se è una variabile globale definita nell'HTML
 declare const UTENTE_ID: string;
@@ -110,7 +111,6 @@ export async function eliminaTransazione(id: number) {
         });
 
         if (res.ok) {
-            console.log(`Transazione ${id} eliminata correttamente.`);
 
             // Invece di fare location.reload(), chiamiamo caricaPortafoglio()
             // Questo aggiornerà sia la tabella Asset che la Storia Transazioni in un colpo solo
@@ -257,9 +257,9 @@ export async function caricaPortafoglio() {
         cacheMieiAssets = data.assets || [];
 
         // --- LOG DI DIAGNOSTICA ---
-        console.log("STRUTTURA DASHBOARD ASSET:", data.assets && data.assets.length > 0 ? data.assets[0] : "Nessun asset");
-        console.log("STRUTTURA TRANSAZIONE STORICA:", storia.length > 0 ? storia[0] : "Nessuna transazione");
-        console.log("STRUTTURA TRANSAZIONE STORICA:", storia);
+        //console.log("STRUTTURA DASHBOARD ASSET:", data.assets && data.assets.length > 0 ? data.assets[0] : "Nessun asset");
+        //console.log("STRUTTURA TRANSAZIONE STORICA:", storia.length > 0 ? storia[0] : "Nessuna transazione");
+        //console.log("STRUTTURA TRANSAZIONE STORICA:", storia);
         // --------------------------
 
         // 2. Chiamata alle funzioni di aggiornamento UI
@@ -309,7 +309,7 @@ function aggiornaHeader(data: IPortafoglioDashboard) {
 function renderizzaTabellaAssets(assets: IAssetDisplay[]) {
     const tbody = document.getElementById('tabella-asset');
     if (!tbody) return;
-    console.log(assets);
+    
     tbody.innerHTML = assets.map(a => {
         // Usiamo ticker e titoloNome come da log
         const visualizzaSimbolo = a.simbolo || "---";
@@ -352,7 +352,7 @@ function renderizzaTabellaStoria(lista: ITransazioneStorica[]) {
 
     tbodyStoria.innerHTML = lista.map((t: ITransazioneStorica) => {
         const isVendita = t.tipoOperazione === TipoOperazione.Vendita;
-        console.log(t.tipoOperazione);
+        
         return `
         <tr class="hover:bg-gray-750 border-b border-gray-800 text-sm">
             <td class="px-6 py-4 text-gray-400">${new Date(t.data).toLocaleDateString()}</td>
@@ -410,7 +410,6 @@ export function applicaFiltriStoria() {
         return matchTesto && matchTipo;
     });
 
-    console.log(`Filtro: ${filtroTipo} | Trovati: ${filtrati.length} su ${cacheStoriaTransazioni.length}`);
     renderizzaTabellaStoria(filtrati);
 }
 
@@ -579,49 +578,77 @@ function renderizzaSuggerimenti(items: (ITitoloLookupDto | IAssetDisplay)[], isV
 
 // --- 3. SELEZIONE E ARRICCHIMENTO ---
 export async function selezionaTitolo(dataB64: string, quantitaPortafoglio: number = 0) {
+    // 1. Decodifica dei dati del titolo
     const titoloSelezionato = JSON.parse(atob(dataB64));
-    console.log("Titolo selezionato:", titoloSelezionato);
 
-    // Recuperiamo il tipo operazione dal tuo input hidden (0 o 1)
+    // 2. Identificazione dello stato (Vendita e ID esistente)
     const inputTipoOp = document.getElementById('m-tipo-operazione') as HTMLInputElement;
     const isVendita = inputTipoOp?.value === "1";
 
-    // 1. Popoliamo l'ID del titolo
-    const inputId = document.getElementById('titolo-selezionato-id') as HTMLInputElement;
-    // Gli asset in cache usano 'titoloId', i titoli della ricerca globale usano 'id'
     const idDaUsare = titoloSelezionato.titoloId || titoloSelezionato.id || null;
+    const inputId = document.getElementById('titolo-selezionato-id') as HTMLInputElement;
+    if (inputId) inputId.value = idDaUsare ? idDaUsare.toString() : "";
 
-    if (inputId) {
-        inputId.value = idDaUsare ? idDaUsare.toString() : "";
-    }
-
-    // 2. UI: Nome del titolo nell'input di ricerca
+    // 3. Aggiornamento UI Nome Titolo
     const inputRicerca = document.getElementById('ricerca-titolo') as HTMLInputElement;
     if (inputRicerca) {
-        // Fallback tra 'titoloNome' (dalla cache assets) e 'nome' (dal DB globale)
         inputRicerca.value = titoloSelezionato.titoloNome || titoloSelezionato.nome || titoloSelezionato.Name || "";
     }
-
     document.getElementById('lista-suggerimenti')?.classList.add('hidden');
 
-    // 3. Salviamo il JSON completo
+    // 4. Salvataggio JSON completo per il backend
     const inputJson = document.getElementById('titolo-selezionato-json') as HTMLInputElement;
-    if (inputJson) {
-        inputJson.value = JSON.stringify(titoloSelezionato);
-    }
+    if (inputJson) inputJson.value = JSON.stringify(titoloSelezionato);
 
-    // 4: POPOLAMENTO AUTOMATICO QUANTITÀ (Solo se Vendita)
+    // 5. Se è una VENDITA, popola automaticamente la quantità massima
     const inputQuantita = document.getElementById('m-quantita') as HTMLInputElement;
-
     if (inputQuantita && isVendita && quantitaPortafoglio > 0) {
         inputQuantita.value = quantitaPortafoglio.toString();
-
-        // Feedback visivo: rosso per la vendita
-        inputQuantita.classList.add('bg-red-900/20', 'ring-1', 'ring-red-500/50', 'transition-all');
-        setTimeout(() => inputQuantita.classList.remove('bg-red-900/20', 'ring-1', 'ring-red-500/50'), 1500);
     }
 
-    // 5. Arricchimento dati (Solo se è un nuovo acquisto senza ID)
+    // --- LOGICA CAMBIO: Eseguita SEMPRE se il titolo non è in EUR ---
+
+    // Determiniamo la valuta (gestendo diversi formati di proprietà)
+    const valuta = titoloSelezionato.valuta || titoloSelezionato.Valuta || "EUR";
+
+    const badgeValuta = document.getElementById('badge-valuta');
+    const containerCambio = document.getElementById('info-cambio-container');
+    const inputTassoHidden = document.getElementById('m-tasso-cambio') as HTMLInputElement;
+    const displayTasso = document.getElementById('display-tasso-cambio');
+    const labelOrigine = document.getElementById('label-valuta-origine');
+
+    // Aggiorna etichette UI
+    if (badgeValuta) {
+        badgeValuta.innerText = valuta;
+        badgeValuta.className = valuta !== 'EUR'
+            ? "absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-orange-400"
+            : "absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-500";
+    }
+
+    if (valuta !== 'EUR') {
+        if (labelOrigine) labelOrigine.innerText = valuta;
+
+        try {
+            // Recupero tasso di cambio in tempo reale
+            const resCambio = await fetch(`/api/valuta/cambio?da=${valuta}`);
+            if (resCambio.ok) {
+                const dataCambio = await resCambio.json();
+                const tassoReale = dataCambio.tasso;
+
+                if (inputTassoHidden) inputTassoHidden.value = tassoReale.toString();
+                if (displayTasso) displayTasso.innerText = tassoReale.toFixed(4);
+                if (containerCambio) containerCambio.classList.remove('hidden');
+            }
+        } catch (err) {
+            console.error("Errore recupero tasso cambio:", err);
+        }
+    } else {
+        // Reset per titoli in Euro
+        if (containerCambio) containerCambio.classList.add('hidden');
+        if (inputTassoHidden) inputTassoHidden.value = "1";
+    }
+
+    // --- ARRICCHIMENTO DATI (Solo per nuovi titoli/acquisti non censiti) ---
     if (!idDaUsare && !isVendita) {
         try {
             const simbolo = titoloSelezionato.simbolo || titoloSelezionato.symbol || titoloSelezionato.ticker;
@@ -629,73 +656,22 @@ export async function selezionaTitolo(dataB64: string, quantitaPortafoglio: numb
                 const res = await fetch(`/api/titoli/dettaglio-completo/${simbolo}`);
                 if (res.ok) {
                     const completo = await res.json();
-                    console.log("Dati completi ricevuti:", completo);
 
-                    // AGGIORNAMENTO JSON (per l'invio al server)
+                    // Aggiorna JSON e UI con dati estesi (ISIN e Prezzo)
                     if (inputJson) inputJson.value = JSON.stringify(completo);
 
-                    // --- AGGIORNAMENTO UI (per l'utente) ---
-                    // Qui popoliamo l'ISIN visibile nella modale
                     const campoIsinUI = document.getElementById('m-isin') as HTMLInputElement;
-                    if (campoIsinUI) {
-                        campoIsinUI.value = completo.isin || "";
+                    if (campoIsinUI) campoIsinUI.value = completo.isin || "";
 
-                        // Un tocco di classe: feedback visivo che il campo è stato popolato
-                        campoIsinUI.classList.add('text-green-400');
-                    }
-
-                    // Se vuoi popolare anche il prezzo unitario suggerito
                     const inputPrezzo = document.getElementById('m-prezzo') as HTMLInputElement;
                     if (inputPrezzo && completo.prezzoAttuale > 0) {
                         inputPrezzo.value = completo.prezzoAttuale.toString();
                     }
-
-                    // --- AGGIORNAMENTO VALUTA ---
-                    const valuta = completo.valuta || "EUR";
-                    const badgeValuta = document.getElementById('badge-valuta');
-                    if (badgeValuta) {
-                        badgeValuta.innerText = valuta;
-                        // Se è diversa da EUR, potresti colorarla per attirare l'attenzione
-                        badgeValuta.className = valuta !== 'EUR'
-                            ? "absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-orange-400"
-                            : "absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-500";
-                    }
-
-                    // --- NUOVO: RECUPERO TASSO DI CAMBIO DAL SERVER ---
-                    if (valuta !== 'EUR') {
-                        // 1. Aggiorna subito le etichette visive
-                        const labelOrigine = document.getElementById('label-valuta-origine');
-                        if (labelOrigine) labelOrigine.innerText = valuta;
-
-                        try {
-                            // 2. Chiamata API per il cambio reale
-                            const resCambio = await fetch(`/api/valuta/cambio?da=${valuta}`);
-                            if (resCambio.ok) {
-                                const dataCambio = await resCambio.json();
-                                // Assicurati che dataCambio.tasso contenga il valore (es. 0.92)
-                                const tassoReale = dataCambio.tasso;
-
-                                const inputHidden = document.getElementById('m-tasso-cambio') as HTMLInputElement;
-                                const displayTasso = document.getElementById('display-tasso-cambio');
-                                const container = document.getElementById('info-cambio-container');
-
-                                if (inputHidden) inputHidden.value = tassoReale.toString();
-                                if (displayTasso) displayTasso.innerText = tassoReale.toFixed(4); // 4 decimali per precisione
-                                if (container) container.classList.remove('hidden');
-                            }
-                        } catch (err) {
-                            console.error("Errore fetch tasso:", err);
-                        }
-                    } else {
-                        // Se è EUR, nascondiamo tutto e resettiamo a 1
-                        document.getElementById('info-cambio-container')?.classList.add('hidden');
-                        const inputHidden = document.getElementById('m-tasso-cambio') as HTMLInputElement;
-                        if (inputHidden) inputHidden.value = "1";
-                    }
-                    // --- FINE NUOVO ---
                 }
             }
-        } catch (e) { console.error("Errore arricchimento:", e); }
+        } catch (e) {
+            console.error("Errore arricchimento dati extra:", e);
+        }
     }
 }
 
@@ -712,6 +688,7 @@ async function fetchTassoCambio(valutaOrigine: string): Promise<number> {
         return 1.0;
     }
 }
+
 
 // --- 4. CHAT AI ---
 export async function chiediAI() {
@@ -731,12 +708,10 @@ export async function chiediAI() {
             headers: {
                 'Content-Type': 'application/json'
             },
-            // IMPORTANTE: ASP.NET Core vuole la stringa nuda JSON-friendly
             body: JSON.stringify(domanda)
         });
 
         if (!res.ok) {
-            // Se fallisce ancora, stampiamo l'errore esatto del server per capire
             const errorDetail = await res.text();
             console.error("Dettaglio errore server:", errorDetail);
             throw new Error("Errore risposta AI");
@@ -746,7 +721,13 @@ export async function chiediAI() {
         removeLoader();
 
         const risposta = data.analista || data.risposta || (typeof data === 'string' ? data : "Risposta non valida");
-        appendMessage(risposta, 'ai');
+
+        // --- MODIFICA QUI: Generiamo un ID per il contenitore del grafico ---
+        const messageId = "ai-msg-" + Date.now();
+        appendMessage(risposta, 'ai', messageId);
+
+        // --- MODIFICA QUI: Avviamo la ricerca dei ticker e la creazione del grafico ---
+        MarketChartModule.handleAiResponse(risposta, messageId);
 
     } catch (e) {
         removeLoader();
@@ -756,14 +737,19 @@ export async function chiediAI() {
 }
 
 // --- FUNZIONI DI SUPPORTO CHAT ---
-export function appendMessage(testo: string, mittente: 'user' | 'ai') {
+// Aggiunto il parametro opzionale messageId
+export function appendMessage(testo: string, mittente: 'user' | 'ai', messageId?: string) {
     const chatWindow = document.getElementById('chat-window');
     if (!chatWindow) return;
 
     const div = document.createElement('div');
     div.className = `flex ${mittente === 'user' ? 'justify-end' : 'justify-start'} mb-4`;
 
-    // Formattazione semplice per il testo (gestisce i ritorni a capo)
+    // Assegniamo l'ID al wrapper principale se è un messaggio dell'AI
+    if (messageId) {
+        div.id = messageId;
+    }
+
     const testoFormattato = testo.replace(/\n/g, '<br>');
 
     div.innerHTML = `
@@ -771,9 +757,12 @@ export function appendMessage(testo: string, mittente: 'user' | 'ai') {
             ? 'bg-blue-600 text-white rounded-tr-none'
             : 'bg-gray-700 text-gray-100 rounded-tl-none border border-gray-600'
         } shadow-md text-sm">
-            ${testoFormattato}
-        </div>
+            <div class="message-body">
+                ${testoFormattato}
+            </div>
+            </div>
     `;
+
     chatWindow.appendChild(div);
     chatWindow.scrollTop = chatWindow.scrollHeight;
 }

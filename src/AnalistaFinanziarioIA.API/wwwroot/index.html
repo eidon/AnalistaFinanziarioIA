@@ -34,7 +34,15 @@
             -webkit-appearance: none;
             margin: 0;
         }
-
+        /* Stile per i canvas dei grafici nella chat */
+        .market-chart-canvas {
+            width: 100%; /* Occupa tutta la larghezza della bolla */
+            display: block; /* Forza il comportamento a blocco */
+            clear: both; /* Evita affiancamenti indesiderati */
+            margin-top: 15px; /* Spazio dal testo */
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
         input[type=number] {
             -moz-appearance: textfield;
             appearance: textfield;
@@ -42,6 +50,9 @@
     </style>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+
+    <script type="module" src="/js/dist/Modules/market-charts.js"></script>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
 
@@ -222,6 +233,7 @@
 
                 <input type="hidden" id="titolo-selezionato-id">
                 <input type="hidden" id="titolo-selezionato-json">
+                <input type="hidden" id="m-tasso-cambio" value="1">
 
                 <div class="grid grid-cols-2 gap-4">
                     <div>

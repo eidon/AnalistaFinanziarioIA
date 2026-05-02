@@ -11,8 +11,9 @@ namespace AnalistaFinanziarioIA.Core.Interfaces
         Task<IEnumerable<AssetPortafoglio>> GetPortafoglioUtenteAsync(Guid utenteId);
         Task<bool> EliminaTransazioneAsync(int transazioneId);
         Task<bool> AggiornaTransazioneAsync(int id, Transazione input);
-        Task<IEnumerable<Transazione>> GetStoriaFiltrataAsync(Guid utenteId, string? searchTerm);
-        Task<List<AssetDisplayDto>> GetDashboardAssetsAsync(Guid utenteId);
+        Task<IEnumerable<TransazioneStoricaDto>> GetStoriaFiltrataAsync(Guid utenteId, string? searchTerm);
+        //Task<List<AssetDisplayDto>> GetDashboardAssetsAsync(Guid utenteId);
+        Task<IEnumerable<AssetPortafoglio>> GetDashboardAssetsAsync(Guid utenteId);
         Task<IEnumerable<AssetPortafoglio>> GetAssetsAttiviAsync(Guid utenteId);
         Task<(decimal Commissioni, decimal Tasse)> GetTotaleCostiTransazioniAsync(Guid utenteId);
     }

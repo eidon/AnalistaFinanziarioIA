@@ -118,7 +118,7 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context, IValut
         return true;
     }
 
-    public async Task<IEnumerable<Transazione>> GetStoriaFiltrataAsync(Guid utenteId, string? searchTerm)
+    public async Task<IEnumerable<TransazioneStoricaDto>> GetStoriaFiltrataAsync(Guid utenteId, string? search)
     {
         var query = _context.Transazioni
             .Include(t => t.AssetPortafoglio)
@@ -126,20 +126,33 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context, IValut
             .Where(t => t.AssetPortafoglio.UtenteId == utenteId)
             .AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(searchTerm))
+        if (!string.IsNullOrWhiteSpace(search))
         {
-            var s = searchTerm.ToLower();
+            var s = search.ToLower();
             query = query.Where(t =>
                 (t.AssetPortafoglio.Titolo.Nome != null && t.AssetPortafoglio.Titolo.Nome.Contains(s, StringComparison.CurrentCultureIgnoreCase)) ||
                 (t.AssetPortafoglio.Titolo.Simbolo != null && t.AssetPortafoglio.Titolo.Simbolo.Contains(s, StringComparison.CurrentCultureIgnoreCase)));
         }
 
         return await query
-            .OrderByDescending(t => t.Data)
-            .ToListAsync();
+                .OrderByDescending(t => t.Data)
+                .Select(t => new TransazioneStoricaDto
+                {
+                    Id = t.Id,
+                    Data = t.Data,
+                    TipoOperazione = t.TipoOperazione, // Il campo rinominato
+                    Quantita = t.Quantita,
+                    PrezzoUnitario = t.PrezzoUnitario,
+                    Commissioni = t.Commissioni,
+                    Tasse = t.Tasse,
+                    Note = t.Note ?? "",
+                    Simbolo = t.AssetPortafoglio.Titolo.Simbolo,
+                    Nome = t.AssetPortafoglio.Titolo.Nome
+                })
+                .ToListAsync();
     }
 
-    public async Task<List<AssetDisplayDto>> GetDashboardAssetsAsync(Guid utenteId)
+    public async Task<IEnumerable<AssetPortafoglio>> GetDashboardAssetsAsync(Guid utenteId)
     {
         var assets = await _context.AssetsPortafoglio
             .Include(a => a.Titolo)
@@ -147,43 +160,43 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context, IValut
             .Where(a => a.UtenteId == utenteId)
             .ToListAsync();
 
-        var result = new List<AssetDisplayDto>();
+        //var result = new List<AssetDisplayDto>();
 
-        foreach (var asset in assets)
-        {
-            var acquisti = asset.Transazioni
-                .Where(t => t.TipoOperazione == TipoTransazione.Acquisto)
-                .ToList();
+        //foreach (var asset in assets)
+        //{
+        //    var acquisti = asset.Transazioni
+        //        .Where(t => t.TipoOperazione == TipoTransazione.Acquisto)
+        //        .ToList();
 
-            decimal pmcInEuro = 0;
-            if (acquisti.Count != 0)
-            {
-                decimal spesaTotaleEur = 0;
-                foreach (var t in acquisti)
-                {
-                    spesaTotaleEur += t.Quantita * await _valutaService.ConvertiInEurAsync(t.PrezzoUnitario, asset.Titolo?.Valuta ?? "EUR");
-                }
-                decimal quantitaAcquistata = acquisti.Sum(t => t.Quantita);
-                pmcInEuro = quantitaAcquistata > 0 ? spesaTotaleEur / quantitaAcquistata : 0;
-            }
+        //    decimal pmcInEuro = 0;
+        //    if (acquisti.Count != 0)
+        //    {
+        //        decimal spesaTotaleEur = 0;
+        //        foreach (var t in acquisti)
+        //        {
+        //            spesaTotaleEur += t.Quantita * await _valutaService.ConvertiInEurAsync(t.PrezzoUnitario, asset.Titolo?.Valuta ?? "EUR");
+        //        }
+        //        decimal quantitaAcquistata = acquisti.Sum(t => t.Quantita);
+        //        pmcInEuro = quantitaAcquistata > 0 ? spesaTotaleEur / quantitaAcquistata : 0;
+        //    }
 
-            decimal prezzoGrezzo = (asset.Titolo?.UltimoPrezzo > 0) ? asset.Titolo.UltimoPrezzo : pmcInEuro;
-            decimal prezzoInEuro = await _valutaService.ConvertiInEurAsync(prezzoGrezzo, asset.Titolo?.Valuta ?? "EUR");
+        //    decimal prezzoGrezzo = (asset.Titolo?.UltimoPrezzo > 0) ? asset.Titolo.UltimoPrezzo : pmcInEuro;
+        //    decimal prezzoInEuro = await _valutaService.ConvertiInEurAsync(prezzoGrezzo, asset.Titolo?.Valuta ?? "EUR");
 
-            result.Add(new AssetDisplayDto
-            {
-                AssetId = asset.Id,
-                Nome = asset.Titolo?.Nome ?? "N/A",
-                Simbolo = asset.Titolo?.Simbolo ?? "N/A",
-                Quantita = asset.QuantitaTotale,
-                Pmc = pmcInEuro,
-                PrezzoAttuale = prezzoInEuro,
-                Valuta = "EUR",
-                ProfittoRealizzatoTotale = await _valutaService.ConvertiInEurAsync(asset.ProfittoRealizzatoTotale, asset.Titolo?.Valuta ?? "EUR")
-            });
-        }
-
-        return result;
+        //    result.Add(new AssetDisplayDto
+        //    {
+        //        AssetId = asset.Id,
+        //        Nome = asset.Titolo?.Nome ?? "N/A",
+        //        Simbolo = asset.Titolo?.Simbolo ?? "N/A",
+        //        Quantita = asset.QuantitaTotale,
+        //        Pmc = pmcInEuro,
+        //        PrezzoAttuale = prezzoInEuro,
+        //        Valuta = "EUR",
+        //        ProfittoRealizzatoTotale = await _valutaService.ConvertiInEurAsync(asset.ProfittoRealizzatoTotale, asset.Titolo?.Valuta ?? "EUR")
+        //    });
+        //}
+        //return result;
+        return assets;
     }
 
     public async Task<IEnumerable<AssetPortafoglio>> GetAssetsAttiviAsync(Guid utenteId)

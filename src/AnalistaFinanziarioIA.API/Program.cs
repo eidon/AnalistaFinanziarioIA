@@ -39,14 +39,49 @@ builder.Services.AddScoped<IPortafoglioRepository, PortafoglioRepository>();
 // ─────────────────────────────────────────────
 // 4. SERVIZI DI BUSINESS LOGIC
 // ─────────────────────────────────────────────
-builder.Services.AddHttpClient<IYahooFinanceService, YahooFinanceService>();
-builder.Services.AddHttpClient<IValutaService, ValutaService>();
+
+
+// Handler per Yahoo Finance (Usa SocketsHttpHandler per gestire il ciclo di vita della connessione)
+builder.Services.AddHttpClient<IYahooFinanceService, YahooFinanceService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(20);
+})
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    // Questo sostituisce il vecchio HttpClientHandler
+    SslOptions = new System.Net.Security.SslClientAuthenticationOptions
+    {
+        // Bypass SSL (quello che facevi prima)
+        RemoteCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => true,
+        // Forza protocolli sicuri
+        EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13
+    },
+    // Fondamentale per Yahoo: chiude la connessione dopo 1 minuto per evitare errori di timeout/rifiuto
+    PooledConnectionLifetime = TimeSpan.FromMinutes(1)
+});
+
+
+// Configuriamo un handler comune per il bypass SSL in Docker
+var sslBypassHandler = new HttpClientHandler
+{
+    ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+};
+
+builder.Services.AddHttpClient<IValutaService, ValutaService>()
+    .ConfigurePrimaryHttpMessageHandler(() => sslBypassHandler);
+
+// AGGIUNGI QUESTO: Registriamo un client per i servizi generici che non hanno un'interfaccia dedicata
+builder.Services.AddHttpClient("SslBypassClient")
+    .ConfigurePrimaryHttpMessageHandler(() => sslBypassHandler);
+
 builder.Services.AddScoped<PortafoglioService>();
 builder.Services.AddScoped<ITransazioneService, TransazioneService>();
 
+
 builder.Services.AddScoped<IQuotazioneService>(sp =>
 {
-    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient();
+    // Usiamo il client con bypass SSL
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("SslBypassClient");
     var repo = sp.GetRequiredService<IQuotazioneRepository>();
     var titoloRepo = sp.GetRequiredService<ITitoloRepository>();
     var config = sp.GetRequiredService<IConfiguration>();
@@ -56,7 +91,8 @@ builder.Services.AddScoped<IQuotazioneService>(sp =>
 
 builder.Services.AddScoped<ITitoloService>(sp =>
 {
-    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient();
+    // Usiamo il client con bypass SSL
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("SslBypassClient");
     var config = sp.GetRequiredService<IConfiguration>();
     var apiKey = config["FinancialModelingPrep:ApiKey"] ?? "demo";
     return new TitoloService(httpClient, apiKey);
@@ -80,7 +116,9 @@ builder.Services.AddSingleton<WebSearchPlugin>(sp =>
 {
     var key = builder.Configuration["Tavily:ApiKey"]
               ?? throw new InvalidOperationException("Tavily:ApiKey non configurata.");
-    return new WebSearchPlugin(key);
+    // Usa il client col bypass SSL
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("SslBypassClient");
+    return new WebSearchPlugin(key, httpClient); // Assicurati che il costruttore del plugin lo accetti
 });
 
 // ─────────────────────────────────────────────
