@@ -15,73 +15,82 @@ using Microsoft.SemanticKernel.Connectors.OpenAI;
 var builder = WebApplication.CreateBuilder(args);
 
 // ─────────────────────────────────────────────
-// 1. INFRASTRUTTURA BASE
+// 1. SERVIZI DI INFRASTRUTTURA BASE
 // ─────────────────────────────────────────────
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-
-// ─────────────────────────────────────────────
-// 2. DATABASE
-// ─────────────────────────────────────────────
+// DATABASE
 builder.Services.AddDbContext<AnalistaFinanziarioDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// ─────────────────────────────────────────────
-// 3. REPOSITORIES
-// ─────────────────────────────────────────────
+// REPOSITORIES
 builder.Services.AddScoped<ITitoloRepository, TitoloRepository>();
 builder.Services.AddScoped<IQuotazioneRepository, QuotazioneRepository>();
 builder.Services.AddScoped<IAnalisiRepository, AnalisiRepository>();
 builder.Services.AddScoped<IPortafoglioRepository, PortafoglioRepository>();
 
 // ─────────────────────────────────────────────
-// 4. SERVIZI DI BUSINESS LOGIC
+// 2. CONFIGURAZIONE HTTP CLIENT & SICUREZZA SSL
 // ─────────────────────────────────────────────
 
+// Helper locale per gestire il bypass SSL condizionale
+HttpMessageHandler GetConditionalHandler(IServiceProvider sp)
+{
+    var env = sp.GetRequiredService<IWebHostEnvironment>();
+    var handler = new HttpClientHandler();
 
-// Handler per Yahoo Finance (Usa SocketsHttpHandler per gestire il ciclo di vita della connessione)
+    if (env.IsDevelopment())
+    {
+        // Bypass attivo SOLO in ambiente di sviluppo/Docker
+        handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+    }
+    return handler;
+}
+
+// YAHOO FINANCE: Configurazione specifica con SocketsHttpHandler
 builder.Services.AddHttpClient<IYahooFinanceService, YahooFinanceService>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(20);
 })
-.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+.ConfigurePrimaryHttpMessageHandler(sp =>
 {
-    // Questo sostituisce il vecchio HttpClientHandler
-    SslOptions = new System.Net.Security.SslClientAuthenticationOptions
+    var env = sp.GetRequiredService<IWebHostEnvironment>();
+    var handler = new SocketsHttpHandler
     {
-        // Bypass SSL (quello che facevi prima)
-        RemoteCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => true,
-        // Forza protocolli sicuri
-        EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13
-    },
-    // Fondamentale per Yahoo: chiude la connessione dopo 1 minuto per evitare errori di timeout/rifiuto
-    PooledConnectionLifetime = TimeSpan.FromMinutes(1)
+        PooledConnectionLifetime = TimeSpan.FromMinutes(1)
+    };
+
+    if (env.IsDevelopment())
+    {
+        handler.SslOptions = new System.Net.Security.SslClientAuthenticationOptions
+        {
+            RemoteCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => true,
+            EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13
+        };
+    }
+    return handler;
 });
 
+// CLIENT GENERICO protetto per servizi esterni (AlphaVantage, FMP, Tavily)
+builder.Services.AddHttpClient("SecureApiClient")
+    .ConfigurePrimaryHttpMessageHandler(sp => GetConditionalHandler(sp));
 
-// Configuriamo un handler comune per il bypass SSL in Docker
-var sslBypassHandler = new HttpClientHandler
-{
-    ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-};
-
+// VALUTA SERVICE
 builder.Services.AddHttpClient<IValutaService, ValutaService>()
-    .ConfigurePrimaryHttpMessageHandler(() => sslBypassHandler);
+    .ConfigurePrimaryHttpMessageHandler(sp => GetConditionalHandler(sp));
 
-// AGGIUNGI QUESTO: Registriamo un client per i servizi generici che non hanno un'interfaccia dedicata
-builder.Services.AddHttpClient("SslBypassClient")
-    .ConfigurePrimaryHttpMessageHandler(() => sslBypassHandler);
 
+// ─────────────────────────────────────────────
+// 3. REGISTRAZIONE SERVIZI DI BUSINESS LOGIC
+// ─────────────────────────────────────────────
 builder.Services.AddScoped<PortafoglioService>();
 builder.Services.AddScoped<ITransazioneService, TransazioneService>();
 
-
 builder.Services.AddScoped<IQuotazioneService>(sp =>
 {
-    // Usiamo il client con bypass SSL
-    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("SslBypassClient");
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("SecureApiClient");
     var repo = sp.GetRequiredService<IQuotazioneRepository>();
     var titoloRepo = sp.GetRequiredService<ITitoloRepository>();
     var config = sp.GetRequiredService<IConfiguration>();
@@ -91,84 +100,60 @@ builder.Services.AddScoped<IQuotazioneService>(sp =>
 
 builder.Services.AddScoped<ITitoloService>(sp =>
 {
-    // Usiamo il client con bypass SSL
-    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("SslBypassClient");
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("SecureApiClient");
     var config = sp.GetRequiredService<IConfiguration>();
     var apiKey = config["FinancialModelingPrep:ApiKey"] ?? "demo";
     return new TitoloService(httpClient, apiKey);
 });
 
-
-// ─────────────────────────────────────────────
-// 5. VALIDATORI
-// ─────────────────────────────────────────────
+// VALIDATORI
 builder.Services.AddValidatorsFromAssemblyContaining<TitoloCreateValidator>();
 
 // ─────────────────────────────────────────────
-// 6. PLUGIN IA
-// Scoped: risolvono dipendenze Scoped (repository, ecc.)
+// 4. INTELLIGENZA ARTIFICIALE (SEMANTIC KERNEL)
 // ─────────────────────────────────────────────
 builder.Services.AddScoped<PortafoglioPlugin>();
 builder.Services.AddScoped<MercatoPlugin>();
 
-// WebSearchPlugin è stateless → Singleton
 builder.Services.AddSingleton<WebSearchPlugin>(sp =>
 {
-    var key = builder.Configuration["Tavily:ApiKey"]
-              ?? throw new InvalidOperationException("Tavily:ApiKey non configurata.");
-    // Usa il client col bypass SSL
-    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("SslBypassClient");
-    return new WebSearchPlugin(key, httpClient); // Assicurati che il costruttore del plugin lo accetti
+    var key = builder.Configuration["Tavily:ApiKey"] ?? throw new InvalidOperationException("Tavily:ApiKey mancante.");
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("SecureApiClient");
+    return new WebSearchPlugin(key, httpClient);
 });
-
-// ─────────────────────────────────────────────
-// 7. SEMANTIC KERNEL
-// Kernel come Scoped per risolvere plugin Scoped correttamente.
-// I plugin vengono registrati QUI, una sola volta per scope.
-// ─────────────────────────────────────────────
-var openAiConfig = builder.Configuration.GetSection("OpenAI");
-var aiApiKey = openAiConfig["ApiKey"]
-               ?? throw new InvalidOperationException("OpenAI:ApiKey non configurata in appsettings.json.");
-var modelId = openAiConfig["ModelId"] ?? "gpt-4o";
 
 builder.Services.AddScoped<Kernel>(sp =>
 {
+    var openAiConfig = builder.Configuration.GetSection("OpenAI");
+    var aiApiKey = openAiConfig["ApiKey"] ?? throw new InvalidOperationException("OpenAI:ApiKey mancante.");
+    var modelId = openAiConfig["ModelId"] ?? "gpt-4o";
+
     var kernelBuilder = Kernel.CreateBuilder();
     kernelBuilder.AddOpenAIChatCompletion(modelId, aiApiKey);
 
-    // Risolviamo i plugin dal DI container (già registrati sopra)
-    var portafoglioPlugin = sp.GetRequiredService<PortafoglioPlugin>();
-    var mercatoPlugin = sp.GetRequiredService<MercatoPlugin>();
-    var webSearchPlugin = sp.GetRequiredService<WebSearchPlugin>();
-
-    kernelBuilder.Plugins.AddFromObject(portafoglioPlugin, "PortafoglioManager");
-    kernelBuilder.Plugins.AddFromObject(mercatoPlugin, "MercatoManager");
-    kernelBuilder.Plugins.AddFromObject(webSearchPlugin, "WebSearch");
+    // Registrazione Plugin
+    kernelBuilder.Plugins.AddFromObject(sp.GetRequiredService<PortafoglioPlugin>(), "PortafoglioManager");
+    kernelBuilder.Plugins.AddFromObject(sp.GetRequiredService<MercatoPlugin>(), "MercatoManager");
+    kernelBuilder.Plugins.AddFromObject(sp.GetRequiredService<WebSearchPlugin>(), "WebSearch");
 
     return kernelBuilder.Build();
 });
 
-// Settings condivisi per l'auto-invocazione dei tool (Singleton: sono immutabili)
 builder.Services.AddSingleton(new OpenAIPromptExecutionSettings
 {
     ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions
 });
 
-// ─────────────────────────────────────────────
-// 8. GESTIONE SESSIONI CHAT
-// Singleton: gestisce stato in-memory cross-request.
-// In produzione sostituire con IDistributedCache (Redis).
-// ─────────────────────────────────────────────
 builder.Services.AddSingleton<IChatSessionService, InMemoryChatSessionService>();
 
 // ─────────────────────────────────────────────
-// 9. BACKGROUND SERVICES
+// 5. BACKGROUND SERVICES
 // ─────────────────────────────────────────────
 builder.Services.AddHostedService<PrezzoAggiornamentoService>();
 builder.Services.AddHostedService<SessionCleanupService>();
 
 // ─────────────────────────────────────────────
-// APP PIPELINE
+// 6. PIPELINE DI ESECUZIONE (MIDDLEWARE)
 // ─────────────────────────────────────────────
 var app = builder.Build();
 
@@ -178,10 +163,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseDefaultFiles();   // Cerca automaticamente index.html in wwwroot
-app.UseStaticFiles();    // Abilita servizio file statici
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
+// Sicurezza: Reindirizza sempre su HTTPS tranne in locale se non configurato
 app.UseHttpsRedirection();
+
 app.UseAuthorization();
 app.MapControllers();
 

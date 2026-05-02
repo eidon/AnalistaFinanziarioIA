@@ -130,8 +130,8 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context, IValut
         {
             var s = search.ToLower();
             query = query.Where(t =>
-                (t.AssetPortafoglio.Titolo.Nome != null && t.AssetPortafoglio.Titolo.Nome.Contains(s, StringComparison.CurrentCultureIgnoreCase)) ||
-                (t.AssetPortafoglio.Titolo.Simbolo != null && t.AssetPortafoglio.Titolo.Simbolo.Contains(s, StringComparison.CurrentCultureIgnoreCase)));
+                (t.AssetPortafoglio.Titolo.Nome != null && t.AssetPortafoglio.Titolo.Nome.Contains(s)) ||
+                (t.AssetPortafoglio.Titolo.Simbolo != null && t.AssetPortafoglio.Titolo.Simbolo.Contains(s)));
         }
 
         return await query

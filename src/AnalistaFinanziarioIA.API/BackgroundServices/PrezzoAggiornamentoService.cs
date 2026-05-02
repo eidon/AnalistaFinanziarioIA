@@ -19,16 +19,33 @@ namespace AnalistaFinanziarioIA.API.BackgroundServices
 
                     var titoli = await titoloRepo.GetAllAsync();
 
-                    foreach (var titolo in titoli)
-                    {
-                        var nuovoPrezzo = await yahooFinance.GetQuoteAsync(titolo.Simbolo);
-
-                        if (nuovoPrezzo > 0)
+                    // 1. Avvio parallelo delle chiamate
+                    var fetchTasks = titoli.Select(async t => {
+                        try
                         {
-                            await quotazioneRepo.SalvaQuotazioneAsync(titolo.Id, nuovoPrezzo);
-                            _logger.LogDebug("Prezzo aggiornato per {Simbolo}: {Prezzo}", titolo.Simbolo, nuovoPrezzo);
+                            var prezzo = await yahooFinance.GetQuoteAsync(t.Simbolo);
+                            return (Id: t.Id, Simbolo: t.Simbolo, Prezzo: prezzo);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Errore durante il fetch per {Simbolo}", t.Simbolo);
+                            return (Id: t.Id, Simbolo: t.Simbolo, Prezzo: 0m); // Ritorna 0 per saltarlo nel foreach
+                        }
+                    }).ToList(); // .ToList() assicura l'avvio immediato dei Task
+
+                    // 2. Attesa collettiva
+                    var risultati = await Task.WhenAll(fetchTasks);
+
+                    // 3. Salvataggio sequenziale
+                    foreach (var res in risultati)
+                    {
+                        if (res.Prezzo > 0)
+                        {
+                            await quotazioneRepo.SalvaQuotazioneAsync(res.Id, res.Prezzo);
+                            _logger.LogDebug("Prezzo aggiornato per {Simbolo}: {Prezzo}", res.Simbolo, res.Prezzo);
                         }
                     }
+
                 }
 
                 await Task.Delay(_periodo, stoppingToken);
