@@ -160,42 +160,6 @@ public class PortafoglioRepository(AnalistaFinanziarioDbContext _context, IValut
             .Where(a => a.UtenteId == utenteId)
             .ToListAsync();
 
-        //var result = new List<AssetDisplayDto>();
-
-        //foreach (var asset in assets)
-        //{
-        //    var acquisti = asset.Transazioni
-        //        .Where(t => t.TipoOperazione == TipoTransazione.Acquisto)
-        //        .ToList();
-
-        //    decimal pmcInEuro = 0;
-        //    if (acquisti.Count != 0)
-        //    {
-        //        decimal spesaTotaleEur = 0;
-        //        foreach (var t in acquisti)
-        //        {
-        //            spesaTotaleEur += t.Quantita * await _valutaService.ConvertiInEurAsync(t.PrezzoUnitario, asset.Titolo?.Valuta ?? "EUR");
-        //        }
-        //        decimal quantitaAcquistata = acquisti.Sum(t => t.Quantita);
-        //        pmcInEuro = quantitaAcquistata > 0 ? spesaTotaleEur / quantitaAcquistata : 0;
-        //    }
-
-        //    decimal prezzoGrezzo = (asset.Titolo?.UltimoPrezzo > 0) ? asset.Titolo.UltimoPrezzo : pmcInEuro;
-        //    decimal prezzoInEuro = await _valutaService.ConvertiInEurAsync(prezzoGrezzo, asset.Titolo?.Valuta ?? "EUR");
-
-        //    result.Add(new AssetDisplayDto
-        //    {
-        //        AssetId = asset.Id,
-        //        Nome = asset.Titolo?.Nome ?? "N/A",
-        //        Simbolo = asset.Titolo?.Simbolo ?? "N/A",
-        //        Quantita = asset.QuantitaTotale,
-        //        Pmc = pmcInEuro,
-        //        PrezzoAttuale = prezzoInEuro,
-        //        Valuta = "EUR",
-        //        ProfittoRealizzatoTotale = await _valutaService.ConvertiInEurAsync(asset.ProfittoRealizzatoTotale, asset.Titolo?.Valuta ?? "EUR")
-        //    });
-        //}
-        //return result;
         return assets;
     }
 

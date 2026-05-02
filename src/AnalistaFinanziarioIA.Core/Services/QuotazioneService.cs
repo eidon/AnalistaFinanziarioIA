@@ -37,20 +37,5 @@ namespace AnalistaFinanziarioIA.Core.Services
             return 0;
         }
 
-        //public async Task AggiornaTuttoIlPortafoglioAsync(Guid utenteId)
-        //{
-        //    var assets = await _repository.GetAssetsByUtenteIdAsync(utenteId);
-
-        //    foreach (var asset in assets)
-        //    {
-        //        // 1. Chiamiamo l'aggiornamento per il singolo titolo
-        //        await AggiornaPrezzoTitoloAsync(asset.TitoloId, asset.Titolo.Simbolo);
-
-        //        // 2. Aspettiamo 12 secondi prima del prossimo titolo 
-        //        // per non superare il limite di 5 chiamate al minuto di Alpha Vantage
-        //        await Task.Delay(12000);
-        //    }
-        //}
-
     }
 }
