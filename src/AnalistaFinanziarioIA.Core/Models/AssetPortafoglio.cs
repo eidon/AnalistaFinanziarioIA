@@ -20,35 +20,34 @@
         public void ApplicaTransazione(Transazione t)
         {
 
-            // Trasformiamo il prezzo unitario in Euro usando il tasso cristallizzato sulla transazione
+            // Convertiamo tutto in EUR usando il TassoCambio della transazione
             // Se la transazione è già in EUR, il tasso sarà 1.0
             decimal prezzoUnitarioEur = t.PrezzoUnitario * t.TassoCambio;
-            decimal tasseEur = t.Tasse * t.TassoCambio;
+            decimal commissioniEur = t.Commissioni * t.TassoCambio;
 
             if (t.TipoOperazione == TipoTransazione.Acquisto)
             {
+                // ACQUISTO: Le commissioni si AGGIUNGONO al costo
+                decimal costoTotaleNuovo = (t.Quantita * prezzoUnitarioEur) + commissioniEur;
                 decimal costoTotalePrecedente = QuantitaTotale * PrezzoMedioCarico;
-                decimal costoNuovoAcquisto = (t.Quantita * prezzoUnitarioEur) + t.Commissioni + tasseEur;
 
                 QuantitaTotale += t.Quantita;
-                if (QuantitaTotale > 0)
-                {
-                    PrezzoMedioCarico = (costoTotalePrecedente + costoNuovoAcquisto) / QuantitaTotale;
-                }
+                // Nuovo PMC che include i costi di transazione
+                PrezzoMedioCarico = (costoTotalePrecedente + costoTotaleNuovo) / QuantitaTotale;
             }
             else if (t.TipoOperazione == TipoTransazione.Vendita)
             {
-                decimal incassoNettoVendita = (t.Quantita * prezzoUnitarioEur) - t.Commissioni - tasseEur;
-                decimal valoreCaricoVenduto = t.Quantita * PrezzoMedioCarico;
+                // VENDITA: Le commissioni si SOTTRAGGONO all'incasso
+                decimal incassoNettoEur = (t.Quantita * prezzoUnitarioEur) - commissioniEur;
+                decimal valoreCaricoEur = t.Quantita * PrezzoMedioCarico;
 
-                ProfittoRealizzatoTotale += (incassoNettoVendita - valoreCaricoVenduto);
+                // Il profitto calcolato è reale: quanto ho incassato pulito - quanto l'avevo pagato
+                decimal profittoDiQuestaVendita = incassoNettoEur - valoreCaricoEur;
+
+                ProfittoRealizzatoTotale += profittoDiQuestaVendita;
                 QuantitaTotale -= t.Quantita;
 
-                if (QuantitaTotale <= 0)
-                {
-                    QuantitaTotale = 0;
-                    PrezzoMedioCarico = 0;
-                }
+                // Nota: Il PMC non cambia mai durante una vendita
             }
 
         }

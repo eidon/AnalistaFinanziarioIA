@@ -26,7 +26,7 @@ namespace AnalistaFinanziarioIA.Core.Services
             foreach (var asset in tutteLePosizioni)
             {
                 // 1. Ricalcolo Totale Pezzi e PMC reale dalle transazioni
-                decimal qCalcolata = 0;
+                decimal qtaCalcolata = 0;
                 decimal pmcCalcolatoEur = 0;
                 decimal realizzatoAssetEur = 0;
 
@@ -40,13 +40,13 @@ namespace AnalistaFinanziarioIA.Core.Services
 
                     if (t.TipoOperazione == TipoTransazione.Acquisto)
                     {
-                        pmcCalcolatoEur = ((qCalcolata * pmcCalcolatoEur) + (t.Quantita * prezzoEur)) / (qCalcolata + t.Quantita);
-                        qCalcolata += t.Quantita;
+                        pmcCalcolatoEur = ((qtaCalcolata * pmcCalcolatoEur) + (t.Quantita * prezzoEur)) / (qtaCalcolata + t.Quantita);
+                        qtaCalcolata += t.Quantita;
                     }
                     else // Vendita
                     {
                         realizzatoAssetEur += t.Quantita * (prezzoEur - pmcCalcolatoEur);
-                        qCalcolata -= t.Quantita;
+                        qtaCalcolata -= t.Quantita;
                     }
                 }
 
@@ -59,7 +59,7 @@ namespace AnalistaFinanziarioIA.Core.Services
                     AssetId = asset.Id,
                     Nome = asset.Titolo.Nome,
                     Simbolo = asset.Titolo.Simbolo,
-                    Quantita = qCalcolata, // Qui Nike sarà 85
+                    Quantita = qtaCalcolata, // Qui Nike sarà 85
                     Pmc = pmcCalcolatoEur,
                     PrezzoAttuale = prezzoAttualeEur,
                     Valuta = "EUR",
@@ -68,7 +68,7 @@ namespace AnalistaFinanziarioIA.Core.Services
 
                 totaleGuadagnoRealizzatoEur += realizzatoAssetEur;
 
-                if (qCalcolata > 0)
+                if (qtaCalcolata > 0)
                 {
                     totaleValoreAttualeEur += dto.ValoreDiMercato;
                     totaleGuadagnoLatenteEur += dto.GuadagnoAssoluto;

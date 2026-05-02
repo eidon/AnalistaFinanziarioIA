@@ -131,7 +131,7 @@ public class TitoliController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, $"Errore interno: {ex.Message}");
+            return StatusCode(500, "Si è verificato un errore interno durante la ricerca tramite API esterne (FMP + Yahoo Finance).");
         }
     }
 }
