@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/Elementi di soluzione/">
+    <File Path="Mappa.ps1" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/AnalistaFinanziarioIA.API/AnalistaFinanziarioIA.API.csproj" />
     <Project Path="src/AnalistaFinanziarioIA.Core/AnalistaFinanziarioIA.Core.csproj" />

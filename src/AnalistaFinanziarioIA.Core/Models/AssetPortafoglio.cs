@@ -1,5 +1,6 @@
 ﻿namespace AnalistaFinanziarioIA.Core.Models
 {
+
     public class AssetPortafoglio
     {
         public int Id { get; set; }
@@ -18,40 +19,40 @@
         /// </summary>
         public void ApplicaTransazione(Transazione t)
         {
-            if (t.Tipo == TipoTransazione.Acquisto)
-            {
-                // Calcolo del nuovo PMC (Prezzo Medio di Carico)
-                decimal costoTotalePrecedente = QuantitaTotale * PrezzoMedioCarico;
 
-                // Il costo dell'acquisto include commissioni e tasse
-                decimal costoNuovoAcquisto = (t.Quantita * t.PrezzoUnitario) + t.Commissioni + t.Tasse;
+            // Trasformiamo il prezzo unitario in Euro usando il tasso cristallizzato sulla transazione
+            // Se la transazione è già in EUR, il tasso sarà 1.0
+            decimal prezzoUnitarioEur = t.PrezzoUnitario * t.TassoCambio;
+            decimal tasseEur = t.Tasse * t.TassoCambio;
+
+            if (t.TipoOperazione == TipoTransazione.Acquisto)
+            {
+                decimal costoTotalePrecedente = QuantitaTotale * PrezzoMedioCarico;
+                decimal costoNuovoAcquisto = (t.Quantita * prezzoUnitarioEur) + t.Commissioni + tasseEur;
 
                 QuantitaTotale += t.Quantita;
-
                 if (QuantitaTotale > 0)
                 {
                     PrezzoMedioCarico = (costoTotalePrecedente + costoNuovoAcquisto) / QuantitaTotale;
                 }
             }
-            else if (t.Tipo == TipoTransazione.Vendita)
+            else if (t.TipoOperazione == TipoTransazione.Vendita)
             {
-                // Gestione Profitto/Perdita Realizzata (P&L)
-                // Si calcola sulla differenza tra prezzo di vendita (netto) e PMC attuale
-                decimal incassoNettoVendita = (t.Quantita * t.PrezzoUnitario) - t.Commissioni - t.Tasse;
+                decimal incassoNettoVendita = (t.Quantita * prezzoUnitarioEur) - t.Commissioni - tasseEur;
                 decimal valoreCaricoVenduto = t.Quantita * PrezzoMedioCarico;
 
                 ProfittoRealizzatoTotale += (incassoNettoVendita - valoreCaricoVenduto);
-
-                // Diminuzione quantità
                 QuantitaTotale -= t.Quantita;
 
-                // Se la posizione si chiude, azzeriamo il PMC per pulizia
                 if (QuantitaTotale <= 0)
                 {
                     QuantitaTotale = 0;
                     PrezzoMedioCarico = 0;
                 }
             }
+
         }
+    
+    
     }
 }

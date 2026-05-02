@@ -8,9 +8,9 @@ namespace AnalistaFinanziarioIA.Core.Validators
         public TitoloCreateValidator()
         {
             RuleFor(x => x.Simbolo)
-                        .NotEmpty().WithMessage("Il Ticker è obbligatorio.")
-                        .MinimumLength(2).WithMessage("Il Ticker deve avere almeno 2 caratteri.")
-                        .MaximumLength(10).WithMessage("Il Ticker è troppo lungo.");
+                        .NotEmpty().WithMessage("Il Simbolo è obbligatorio.")
+                        .MinimumLength(2).WithMessage("Il Simbolo deve avere almeno 2 caratteri.")
+                        .MaximumLength(10).WithMessage("Il Simbolo è troppo lungo.");
 
             RuleFor(x => x.Isin)
                 .NotEmpty().WithMessage("L'ISIN è obbligatorio.")

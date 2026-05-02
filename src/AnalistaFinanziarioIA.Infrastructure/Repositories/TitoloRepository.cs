@@ -54,7 +54,7 @@ public class TitoloRepository : ITitoloRepository
 
         var q = query.ToLower();
         return await _context.Titoli
-            .Where(t => t.Simbolo.ToLower().Contains(q) || t.Nome.ToLower().Contains(q))
+            .Where(t => t.Simbolo.Contains(q, StringComparison.CurrentCultureIgnoreCase) || t.Nome.Contains(q, StringComparison.CurrentCultureIgnoreCase))
             .OrderBy(t => t.Nome) // Ordina alfabeticamente
             .Take(limit) // Non sovraccaricare la UI, i primi 5-10 bastano
             .ToListAsync();

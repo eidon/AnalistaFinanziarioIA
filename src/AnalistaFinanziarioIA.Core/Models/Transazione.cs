@@ -6,7 +6,7 @@
     {
         public int Id { get; set; }
         public int AssetPortafoglioId { get; set; }
-        public TipoTransazione Tipo { get; set; }
+        public TipoTransazione TipoOperazione { get; set; }
         public decimal Quantita { get; set; }
         public decimal PrezzoUnitario { get; set; } // In valuta originale
         public decimal Commissioni { get; set; }

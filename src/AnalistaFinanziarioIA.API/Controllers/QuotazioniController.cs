@@ -6,7 +6,10 @@ namespace AnalistaFinanziarioIA.API.Controllers;
 
 [ApiController]
 [Route("api/titoli/{titoloId:int}/[controller]")]
-public class QuotazioniController(IQuotazioneRepository _quotazioneRepository, IQuotazioneService _quotazioneService) : ControllerBase
+public class QuotazioniController(
+    IQuotazioneRepository _quotazioneRepository, 
+    IQuotazioneService _quotazioneService,
+    IYahooFinanceService _yahooService) : ControllerBase
 {
 
     [HttpGet]
@@ -14,6 +17,13 @@ public class QuotazioniController(IQuotazioneRepository _quotazioneRepository, I
     {
         var quotazioni = await _quotazioneRepository.GetByTitoloIdAsync(titoloId);
         return Ok(quotazioni);
+    }
+
+    [HttpGet("storia-mercato/{ticker}")]
+    public async Task<IActionResult> GetStoriaMercato(string ticker, [FromQuery] int giorni = 30)
+    {
+        var dati = await _yahooService.GetHistoryAsync(ticker, giorni);
+        return Ok(dati);
     }
 
     [HttpGet("periodo")]

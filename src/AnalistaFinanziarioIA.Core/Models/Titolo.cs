@@ -1,6 +1,13 @@
 namespace AnalistaFinanziarioIA.Core.Models;
 
-public enum TipoTitolo { Azione, ETF, BTP, Crypto, ObbligazioneCorp }
+public enum TipoTitolo 
+{ 
+    Azione =0 , 
+    ETF = 1, 
+    BTP = 2, 
+    Crypto = 3, 
+    ObbligazioneCorp = 4 
+}
 
 public class Titolo
 {

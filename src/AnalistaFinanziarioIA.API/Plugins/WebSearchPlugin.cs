@@ -5,10 +5,8 @@ using System.Text.Json;
 
 namespace AnalistaFinanziarioIA.API.Plugins;
 
-public class WebSearchPlugin(string _apiKey)
+public class WebSearchPlugin(string _apiKey, HttpClient _httpClient)
 {
-    private readonly HttpClient _httpClient = new();
-
     [KernelFunction, Description("Cerca news finanziarie e informazioni aggiornate sul web.")]
     public async Task<string> SearchAsync([Description("La query di ricerca")] string query)
     {

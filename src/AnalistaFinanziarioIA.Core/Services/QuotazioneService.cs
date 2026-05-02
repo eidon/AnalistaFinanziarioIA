@@ -17,9 +17,9 @@ namespace AnalistaFinanziarioIA.Core.Services
                 return 0; // Titolo non trovato o senza ticker
             }
 
-            string ticker = titolo.Simbolo;
+            string simbolo = titolo.Simbolo;
 
-            var url = $"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={ticker}&apikey={apiKey}";
+            var url = $"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={simbolo}&apikey={apiKey}";
 
             var response = await _httpClient.GetFromJsonAsync<AlphaVantageResponse>(url);
 

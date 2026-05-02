@@ -34,15 +34,25 @@
             -webkit-appearance: none;
             margin: 0;
         }
-
+        /* Stile per i canvas dei grafici nella chat */
+        .market-chart-canvas {
+            width: 100%; /* Occupa tutta la larghezza della bolla */
+            display: block; /* Forza il comportamento a blocco */
+            clear: both; /* Evita affiancamenti indesiderati */
+            margin-top: 15px; /* Spazio dal testo */
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
         input[type=number] {
             -moz-appearance: textfield;
             appearance: textfield;
         }
     </style>
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+
+    <script type="module" src="/js/dist/Modules/market-charts.js"></script>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
 
@@ -77,7 +87,10 @@
             <section class="bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-700">
                 <div class="p-6 border-b border-gray-700 flex justify-between items-center">
                     <h2 class="text-lg font-semibold">Asset</h2>
-                    <button onclick="apriModaleNuova()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition shadow-lg">+ Aggiungi</button>
+                    <button onclick="apriModaleNuova()"
+                            class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition shadow-lg">
+                        + Aggiungi
+                    </button>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-sm">
@@ -108,12 +121,16 @@
                                class="bg-gray-900 border border-gray-700 text-white text-xs rounded-xl pl-10 pr-4 py-2 focus:ring-blue-500 focus:border-blue-500 w-full">
                     </div>
 
-                    <select id="filtro-tipo"
+                    <select id="filtro-tipo" onchange="applicaFiltriStoria()"
                             class="bg-gray-900 border border-gray-700 text-white text-xs rounded-xl px-4 py-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
                         <option value="tutti">Tutti i tipi</option>
                         <option value="0">Acquisti</option>
                         <option value="1">Vendite</option>
                     </select>
+                    <button onclick="apriModaleNuova()"
+                            class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition shadow-lg">
+                        + Aggiungi
+                    </button>
                 </div>
                 <div class="overflow-x-auto overflow-y-auto max-h-[750px] relative">
                     <table class="w-full text-left text-sm border-separate border-spacing-0">
@@ -199,9 +216,9 @@
                 <input type="hidden" id="m-tipo-operazione" value="0">
 
                 <div class="relative">
-                    <label class="text-xs text-gray-500 block mb-1 uppercase font-bold">Strumento</label>
+                    <label for="ricerca-titolo" class="text-xs text-gray-500 block mb-1 uppercase font-bold">Strumento</label>
                     <div class="relative">
-                        <input type="text" id="ricerca-titolo" oninput="eseguiRicerca(this.value)" placeholder="Cerca ticker (es. AAPL, ENI.MI...)" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl focus:border-blue-500 text-white pr-10">
+                        <input type="text" id="ricerca-titolo" oninput="eseguiRicerca(this.value)" placeholder="Cerca ticker (es. AAPL, ENI.MI...)" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl focus:border-blue-500 text-white pr-10 outline-none">
                         <div id="search-loader" class="hidden absolute right-3 top-1/2 -translate-y-1/2">
                             <div class="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
                         </div>
@@ -210,47 +227,71 @@
                 </div>
 
                 <div>
-                    <label class="text-xs text-gray-500 block mb-1 uppercase font-bold">Codice ISIN (Opzionale)</label>
-                    <input type="text" id="m-isin" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white">
+                    <label for="m-isin" class="text-xs text-gray-500 block mb-1 uppercase font-bold">Codice ISIN (Opzionale)</label>
+                    <input type="text" id="m-isin" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white outline-none focus:border-blue-500">
                 </div>
 
                 <input type="hidden" id="titolo-selezionato-id">
                 <input type="hidden" id="titolo-selezionato-json">
+                <input type="hidden" id="m-tasso-cambio" value="1">
 
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="text-xs text-gray-500 block mb-1 uppercase font-bold">Quantità</label>
-                        <input type="number" id="m-quantita" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white">
+                        <label for="m-quantita" class="text-xs text-gray-500 block mb-1 uppercase font-bold">Quantità</label>
+                        <input type="number" id="m-quantita" step="any" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white outline-none focus:border-blue-500">
                     </div>
                     <div>
-                        <label class="text-xs text-gray-500 block mb-1 uppercase font-bold">Prezzo Unitario</label>
+                        <label for="m-prezzo" class="text-xs text-gray-500 block mb-1 uppercase font-bold">Prezzo Unitario</label>
                         <div class="relative">
-                            <input type="number" id="m-prezzo" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white pr-12">
-                            <span id="badge-valuta" class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-orange-400"></span>
+                            <input type="number" id="m-prezzo" step="any" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white pr-12 focus:ring-1 focus:ring-blue-500 outline-none">
+                            <span id="badge-valuta" class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-orange-400 pointer-events-none select-none">EUR</span>
+                        </div>
+                        <div id="info-cambio-container" class="hidden col-span-2 mb-4">
+                            <div class="bg-slate-800/50 border border-slate-700 rounded-lg p-4 flex items-center justify-between shadow-inner">
+                                <div class="flex flex-col">
+                                    <span class="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">Tasso di conversione</span>
+                                    <div class="flex items-center gap-3">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-sm font-bold text-white">1</span>
+                                            <span id="label-valuta-origine" class="text-xs bg-slate-700 px-1.5 py-0.5 rounded text-slate-300 font-mono">USD</span>
+                                        </div>
+
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                        </svg>
+
+                                        <div class="flex items-center gap-2">
+                                            <span id="display-tasso-cambio" class="text-xl font-mono font-black text-emerald-400">0.9245</span>
+                                            <span class="text-xs font-bold text-emerald-600">EUR</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="text-slate-600">
+                                    <i class="fas fa-exchange-alt"></i>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-3 gap-4">
                     <div>
-                        <label class="block text-[10px] text-gray-500 mb-1 uppercase font-bold text-center">Data</label>
-                        <input type="date" id="m-data"
-                               class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white text-sm focus:border-blue-500 outline-none">
+                        <label for="m-data" class="block text-[10px] text-gray-500 mb-1 uppercase font-bold text-center">Data</label>
+                        <input type="date" id="m-data" class="w-full h-[50px] bg-gray-800 border border-gray-700 p-3 rounded-xl text-white text-sm focus:border-blue-500 outline-none appearance-none">
                     </div>
                     <div>
-                        <label class="block text-[10px] text-gray-500 mb-1 uppercase font-bold text-center">Comm. (€)</label>
-                        <input type="number" id="m-commissioni" step="0.01" value="0"
-                               class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white text-sm focus:border-blue-500 outline-none text-center">
+                        <label for="m-commissioni" class="block text-[10px] text-gray-500 mb-1 uppercase font-bold text-center">Comm. (€)</label>
+                        <input type="number" id="m-commissioni" step="any" value="0" class="w-full h-[50px] bg-gray-800 border border-gray-700 p-3 rounded-xl text-white text-sm focus:border-blue-500 outline-none text-center">
                     </div>
                     <div>
-                        <label class="block text-[10px] text-gray-500 mb-1 uppercase font-bold text-center">Tasse (€)</label>
-                        <input type="number" id="m-tasse" step="0.01" value="0"
-                               class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white text-sm focus:border-blue-500 outline-none text-center">
+                        <label for="m-tasse" class="block text-[10px] text-gray-500 mb-1 uppercase font-bold text-center">Tasse (€)</label>
+                        <input type="number" id="m-tasse" step="any" value="0" class="w-full h-[50px] bg-gray-800 border border-gray-700 p-3 rounded-xl text-white text-sm focus:border-blue-500 outline-none text-center">
                     </div>
                 </div>
 
                 <div>
-                    <label class="text-xs text-gray-500 block mb-1 uppercase font-bold">Note</label>
+                    <label for="m-note" class="text-xs text-gray-500 block mb-1 uppercase font-bold">Note</label>
                     <textarea id="m-note" rows="2" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-xl text-white focus:border-blue-500 outline-none"></textarea>
                 </div>
 

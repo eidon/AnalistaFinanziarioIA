@@ -1,20 +1,17 @@
-﻿namespace AnalistaFinanziarioIA.Core.DTOs;
+﻿using AnalistaFinanziarioIA.Core.Models;
 
-public class TitoloLookupDto
+namespace AnalistaFinanziarioIA.Core.DTOs;
+
+public class TitoloLookupDto : TitoloBaseDto
 {
     // L'Id sarà valorizzato solo se il titolo è già nel tuo DB
     public int? Id { get; set; }
-    public string Simbolo { get; set; } = string.Empty;
-    public string Nome { get; set; } = string.Empty;
-    public string Valuta { get; set; } = string.Empty;
-    public string Tipo { get; set; } = string.Empty; // Azione, ETF, ecc.
 
-    public string Isin { get; set; } = string.Empty;
     public string Mercato { get; set; } = string.Empty;
     public string Settore { get; set; } = string.Empty;
+    public decimal PrezzoAttuale { get; set; }
 
     // Flag per far capire al frontend se il titolo è nuovo o già censito
     public bool GiaPresenteNelDb => Id.HasValue;
 
-    public decimal PrezzoAttuale { get; internal set; }
 }

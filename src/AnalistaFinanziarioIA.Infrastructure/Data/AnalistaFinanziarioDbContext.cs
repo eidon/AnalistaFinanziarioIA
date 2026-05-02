@@ -35,6 +35,11 @@ public class AnalistaFinanziarioDbContext : DbContext
             property.SetScale(4);
         }
 
+        // Più precisione per il cambio
+        modelBuilder.Entity<Transazione>()
+        .Property(t => t.TassoCambio)
+        .HasPrecision(18, 8); 
+
         // 2. CONFIGURAZIONE TABELLA TITOLI
         modelBuilder.Entity<Titolo>(entity =>
         {
