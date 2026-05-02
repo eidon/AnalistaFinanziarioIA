@@ -14,19 +14,6 @@ namespace AnalistaFinanziarioIA.API.Controllers
         public async Task<ActionResult<IEnumerable<TransazioneStoricaDto>>> GetStoria(Guid utenteId, [FromQuery] string? search)
         {
             var storia = await _repository.GetStoriaFiltrataAsync(utenteId, search);
-
-            //var risultato = storia.Select(t => new TransazioneStoricaDto
-            //{
-            //    Id = t.Id,
-            //    Data = t.Data,
-            //    Quantita = t.Quantita,
-            //    PrezzoUnitario = t.PrezzoUnitario,
-            //    Note = t.Note ?? "",
-            //    Nome = t.AssetPortafoglio?.Titolo?.Nome ?? "N/A",
-            //    Simbolo = t.AssetPortafoglio?.Titolo?.Simbolo ?? "N/A",
-            //    TipoOperazione = t.TipoOperazione // Assumendo che il campo EF si chiami così ora
-            //}).ToList();
-
             return Ok(storia);
         }
 
